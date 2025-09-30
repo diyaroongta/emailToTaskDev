@@ -9,8 +9,11 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 from providers.todoist import create_task as create_todoist_task, TodoistError
+
+load_dotenv(override=False)
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET", "dev-change-me")

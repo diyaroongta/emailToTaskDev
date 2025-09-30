@@ -12,3 +12,6 @@ processed.json
 
 # macOS cruft
 .DS_Store
+
+# client_secret.json for Google API
+client_secret.json
