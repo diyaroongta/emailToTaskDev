@@ -1,4 +1,4 @@
-# 📧 Email to Task
+# 📧 Taskflow
 
 A powerful Flask application that automatically converts Gmail emails into tasks using Todoist. Simply forward emails to a specific Gmail label, and they'll be transformed into organized tasks with all the relevant information.
 
