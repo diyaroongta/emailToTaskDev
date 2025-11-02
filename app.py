@@ -20,7 +20,8 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).with_name('.env'), override=False)
 
-from db import db_session, init_db, Email, Task 
+from db import db_session, init_db, Email, Task
+from ml import ml_decide 
 
 
 
@@ -465,28 +466,36 @@ def fetch_emails():
 
             payload = message_to_payload(full_msg)
 
-            #ML STUFF HERE
-            """
-            ml = ml_decide(payload)
-            should_create = ml.get("should_create", True)
+            # ML Classification and Task Generation
+            ml_result = ml_decide(payload)
+            should_create = ml_result.get("should_create", True)
+            confidence = ml_result.get("confidence", 0.5)
+            reasoning = ml_result.get("reasoning", "")
+            
+            # Store email with ML metadata
+            email_row = get_or_create_email(s, message_id, payload)
+            
+            # Skip if ML decides not to create task
             if not should_create:
-                # Optionally record why it was skipped (DB/JSON history). Then continue.
-                # e.g., mark skipped in DB or just skip silently:
+                # Mark as processed but don't create task
+                if not email_row.first_processed_at:
+                    email_row.first_processed_at = datetime.now(timezone.utc)
+                email_row.last_processed_at = datetime.now(timezone.utc)
+                email_row.processed = True
+                # Log the skip decision
+                print(f"Skipping email '{payload.get('subject')}' - Confidence: {confidence:.2f}, Reason: {reasoning}")
                 continue
 
-            subject = (ml.get("title") or payload.get("subject") or "Email task").strip()
-            notes   = (ml.get("notes") or payload.get("body") or payload.get("snippet") or "").strip()
-            due     = ml.get("due")  # RFC3339 string or None
+            # Use ML-generated title and notes
+            subject = (ml_result.get("title") or payload.get("subject") or "Email task").strip()
+            notes = (ml_result.get("notes") or payload.get("body") or payload.get("snippet") or "").strip()
+            due = ml_result.get("due")  # RFC3339 string or None (can be extended in ml.py)
 
-            # Populate fields the provider expects
+            # Update payload with ML-enhanced content
             payload["subject"] = subject
-            payload["body"]    = notes
+            payload["body"] = notes
             if due:
                 payload["due"] = due
-            """
-
-
-            email_row = get_or_create_email(s, message_id, payload)
 
             # Dedupe per provider
             if task_exists(s, email_row.id, provider):

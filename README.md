@@ -6,7 +6,9 @@ A powerful Flask application that automatically converts Gmail emails into tasks
 
 - **🔐 Secure Gmail Integration**: OAuth2 authentication with Google
 - **⚡ Automatic Task Creation**: Convert emails to Todoist tasks instantly
-- **🎯 Smart Email Processing**: Extract subject, sender, and body content
+- **🤖 AI-Powered Classification**: Machine learning to decide which emails should become tasks
+- **✨ Smart Task Generation**: AI-generated task titles and descriptions from email content
+- **🎯 Smart Email Processing**: Extract subject, sender, and body content (handles HTML emails)
 - **📊 Flexible Search**: Process emails by label, time window, or custom queries
 - **🎨 Modern UI**: Clean, responsive interface inspired by Notion
 - **⚙️ Configurable Settings**: Customize task provider, labels, and processing limits
@@ -20,6 +22,7 @@ A powerful Flask application that automatically converts Gmail emails into tasks
 - pip3
 - Google account with Gmail access
 - Todoist account with API access
+- OpenAI API key (for AI-powered classification and task generation)
 
 ### Installation
 
@@ -74,7 +77,13 @@ pip3 install -r requirements.txt
 1. Go to [Todoist Integrations](https://todoist.com/prefs/integrations)
 2. Copy your API token
 
-### 4. Environment Configuration
+### 4. OpenAI API Setup
+
+1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Create a new API key
+3. Copy the key (you won't be able to see it again)
+
+### 5. Environment Configuration
 
 Create a `.env` file:
 
@@ -93,6 +102,10 @@ PROCESSED_STORE=processed.json
 # Task Provider Configuration
 DEFAULT_TASK_PROVIDER=todoist
 TODOIST_API_TOKEN=your-todoist-api-token
+
+# OpenAI Configuration for ML Classification
+OPENAI_API_KEY=sk-your-openai-api-key-here
+OPENAI_MODEL=gpt-4o-mini
 
 # Application Configuration
 FETCH_LIMIT=10
@@ -145,4 +158,34 @@ The application will:
 | `TODOIST_API_TOKEN` | Todoist API token | Required |
 | `FETCH_LIMIT` | Maximum emails to process | `10` |
 | `PORT` | Application port | `5000` |
+| `OPENAI_API_KEY` | OpenAI API key for ML features | Required |
+| `OPENAI_MODEL` | OpenAI model to use | `gpt-4o-mini` |
+
+## 🤖 AI Classification Features
+
+The application uses OpenAI's GPT models to intelligently process emails:
+
+### Email Classification
+The AI automatically determines whether an email should become a task based on:
+- **Action items or requests** → Creates task
+- **Reminders or deadlines** → Creates task
+- **Meeting invitations** → Creates task
+- **Bills or payments** → Creates task
+- **Pure newsletters** → Skips
+- **Marketing content** → Skips
+- **Social media notifications** → Skips
+- **FYI-only messages** → Skips
+
+### Task Generation
+For emails classified as tasks, the AI:
+- **Generates concise titles**: Actionable, 3-8 words, removing prefixes like "RE:", "FWD:"
+- **Creates clean descriptions**: Extracts key details, dates, and requirements
+- **Handles HTML content**: Automatically converts HTML emails to clean plain text
+- **Provides reasoning**: Logs why decisions were made (visible in console)
+
+### Fallback Behavior
+If OpenAI API is unavailable or not configured:
+- All emails are processed as tasks (default behavior)
+- Original email subject becomes task title
+- Original email body becomes task description
 
