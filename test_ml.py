@@ -6,6 +6,10 @@ Usage: python3 test_ml.py
 
 from ml import classify_and_generate_task, clean_html_to_text
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Test email samples
 test_emails = [
