@@ -308,13 +308,46 @@ def create_google_calendar_event(meeting: dict):
         print("Not authenticated for Google Calendar")
         return None
 
+    raw_start = meeting.get("start_datetime")
+    raw_end = meeting.get("end_datetime")
+    now_utc = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+
+    # Parse supplied start time or fall back to now
+    if raw_start:
+        try:
+            start_obj = dateutil_parser.isoparse(raw_start)
+        except Exception:
+            start_obj = now_utc
+    else:
+        start_obj = now_utc
+
+    # Never schedule meetings in the past
+    if start_obj < now_utc:
+        start_obj = now_utc
+
+    start_dt = start_obj.isoformat()
+
+    # Parse end time or default to one hour after start
+    if raw_end:
+        try:
+            end_obj = dateutil_parser.isoparse(raw_end)
+        except Exception:
+            end_obj = start_obj + timedelta(hours=1)
+    else:
+        end_obj = start_obj + timedelta(hours=1)
+
+    if end_obj <= start_obj:
+        end_obj = start_obj + timedelta(hours=1)
+
+    end_dt = end_obj.isoformat()
+
     event = {
         "summary": meeting.get("summary") or "Meeting",
         "location": meeting.get("location"),
         "description": meeting.get("summary"),
-        "start": {"dateTime": meeting.get("start_datetime"), "timeZone": "UTC"},
-        "end": {"dateTime": meeting.get("end_datetime"), "timeZone": "UTC"},
-        "attendees": [{"email": p} for p in meeting.get("participants", [])],
+        "start": {"dateTime": start_dt, "timeZone": "UTC"},
+        "end": {"dateTime": end_dt, "timeZone": "UTC"},
+        "attendees": [{"email": p} for p in meeting.get("participants", []) if p],
     }
 
     try:

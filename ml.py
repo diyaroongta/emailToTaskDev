@@ -212,6 +212,7 @@ For task notes:
 """
 
 
+    result: Dict[str, Any] = {}
     try:
         client = OpenAI(api_key=api_key)
         
@@ -271,7 +272,7 @@ For task notes:
             "title": email_content["subject"],
             "notes": email_content["body"] or email_content["snippet"],
             "reasoning": f"API error: {str(e)}",
-            "meeting": result.get("meeting") 
+            "meeting": result.get("meeting") if isinstance(result, dict) else None
         }
 
 
@@ -316,4 +317,3 @@ def ml_decide(payload: Dict[str, Any]) -> Dict[str, Any]:
         if not all(k in meeting_info for k in required_keys):
             result["meeting"] = None
     return result
-
