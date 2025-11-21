@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
+import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
+import { Email as EmailIcon} from '@mui/icons-material';
 import { api } from '../api';
+import { notionColors } from '../theme';
 
 interface NavbarProps {
   authenticated: boolean;
@@ -13,36 +16,63 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
   };
 
   return (
-    <nav className="notion-navbar">
-      <div className="container">
-        <Link className="notion-brand" to="/">
-          <i className="bi bi-envelope-check notion-icon"></i> Taskflow
-        </Link>
-        <div className="notion-nav-links">
+    <AppBar 
+      position="sticky" 
+      elevation={0}
+      sx={{ 
+        mb: 0,
+        backgroundColor: notionColors.background.default,
+        color: 'text.primary',
+        borderBottom: `1px solid ${notionColors.border.default}`,
+      }}
+    >
+      <Toolbar sx={{ maxWidth: '900px', width: '100%', mx: 'auto', px: 3, py: 1.5, minHeight: '48px !important' }}>
+        <Box 
+          component={Link} 
+          to="/" 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1.5, 
+            textDecoration: 'none', 
+            color: notionColors.text.primary,
+            '&:hover': { opacity: 0.7 },
+            transition: 'opacity 0.2s',
+          }}
+        >
+          <EmailIcon sx={{ fontSize: 20, color: notionColors.text.icon }} />
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              fontWeight: 500,
+              fontSize: '16px',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            Taskflow
+          </Typography>
+        </Box>
+        <Box sx={{ flexGrow: 1 }} />
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {authenticated ? (
-            <>
-              <Link className="notion-nav-link" to="/fetch-emails">
-                <i className="bi bi-download notion-icon"></i> Fetch Emails
-              </Link>
-              <Link className="notion-nav-link" to="/view-all-results">
-                <i className="bi bi-list-check notion-icon"></i> All Results
-              </Link>
-              <button className="notion-nav-link" onClick={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <i className="bi bi-box-arrow-right notion-icon"></i> Logout
-              </button>
-            </>
-          ) : (
-            <button 
-              className="notion-nav-link" 
-              onClick={() => api.authorize()}
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            <Button
+              onClick={handleLogout}
+              variant="text"
             >
-              <i className="bi bi-google notion-icon"></i> Login with Google
-            </button>
+              Logout
+            </Button>
+          ) : (
+            <Button
+              onClick={() => api.authorize()}
+              variant="contained"
+            >
+              Connect
+            </Button>
           )}
-        </div>
-      </div>
-    </nav>
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 }
 

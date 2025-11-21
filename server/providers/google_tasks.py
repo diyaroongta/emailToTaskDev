@@ -1,8 +1,11 @@
 """Google Tasks provider."""
 
 from __future__ import annotations
+import logging
 from typing import Any, Dict, Optional
 from googleapiclient.discovery import Resource
+
+logger = logging.getLogger(__name__)
 MAX_NOTES_LEN = 8000
 
 
@@ -22,15 +25,25 @@ def _truncate(s: str, limit: int = MAX_NOTES_LEN) -> str:
 
 def _get_or_create_tasklist(service: Resource, title: str) -> str:
     """Return tasklist id with given title. create it if missing."""
-    req = service.tasklists().list(maxResults=100)
-    while req is not None:
-        resp = req.execute()
-        for tl in resp.get("items", []):
-            if tl.get("title") == title:
-                return tl["id"]
-        req = service.tasklists().list_next(req, resp)
-    created = service.tasklists().insert(body={"title": title}).execute()
-    return created["id"]
+    logger.debug(f"Getting or creating tasklist: '{title}'")
+    try:
+        req = service.tasklists().list(maxResults=100)
+        while req is not None:
+            resp = req.execute()
+            tasklists = resp.get("items", [])
+            logger.debug(f"Found {len(tasklists)} tasklist(s)")
+            for tl in tasklists:
+                if tl.get("title") == title:
+                    logger.debug(f"Found existing tasklist '{title}' with id: {tl['id']}")
+                    return tl["id"]
+            req = service.tasklists().list_next(req, resp)
+        logger.info(f"Tasklist '{title}' not found, creating new one")
+        created = service.tasklists().insert(body={"title": title}).execute()
+        logger.info(f"Created new tasklist '{title}' with id: {created['id']}")
+        return created["id"]
+    except Exception as e:
+        logger.error(f"Error accessing Google Tasks API: {e}", exc_info=True)
+        raise GoogleTasksError(f"Error accessing Google Tasks: {str(e)}")
 
 
 def create_task(
@@ -45,11 +58,14 @@ def create_task(
     Returns a dict with key fields from the created Task.
     """
     if tasks_service is None:
+        logger.error("Google Tasks service is not initialized")
         raise GoogleTasksError("Google Tasks service is not initialized")
 
     subject = (payload.get("subject") or "Email task").strip()
     body = (payload.get("body") or payload.get("snippet") or "").strip()
     sender = (payload.get("sender") or "").strip()
+
+    logger.debug(f"Creating Google Task: title='{subject}', sender='{sender}', has_due={bool(payload.get('due'))}")
 
     notes_parts = []
     if sender:
@@ -64,12 +80,19 @@ def create_task(
     if payload.get("due"):
         task_body["due"] = payload["due"]  # e.g., "2025-10-28T18:00:00Z" or "2025-10-28"
 
-    if not tasklist_id:
-        list_id = _get_or_create_tasklist(tasks_service, tasklist_title or "Tasks")
-    else:
-        list_id = tasklist_id
+    try:
+        if not tasklist_id:
+            list_id = _get_or_create_tasklist(tasks_service, tasklist_title or "Tasks")
+        else:
+            list_id = tasklist_id
+            logger.debug(f"Using provided tasklist_id: {list_id}")
 
-    created = tasks_service.tasks().insert(tasklist=list_id, body=task_body).execute()
+        logger.debug(f"Inserting task into tasklist {list_id}")
+        created = tasks_service.tasks().insert(tasklist=list_id, body=task_body).execute()
+        logger.info(f"Google Task created successfully: id={created.get('id')}, title='{created.get('title')}'")
+    except Exception as e:
+        logger.error(f"Error creating Google Task: {e}", exc_info=True)
+        raise GoogleTasksError(f"Error creating task: {str(e)}")
     return {
         "id": created.get("id"),
         "title": created.get("title"),

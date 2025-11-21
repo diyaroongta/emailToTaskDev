@@ -1,13 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
+import { ThemeProvider, CssBaseline, CircularProgress, Box } from '@mui/material';
 import { api } from './api';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
-import FetchEmails from './pages/FetchEmails';
-import EmailResults from './pages/EmailResults';
-import AllResults from './pages/AllResults';
-import NoEmailsFound from './pages/NoEmailsFound';
-import './App.css';
+import { theme, notionColors } from './theme';
 
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -32,60 +29,31 @@ function App() {
   }, []);
 
   if (authenticated === null) {
-    return <div>Loading...</div>;
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+          <CircularProgress />
+        </Box>
+      </ThemeProvider>
+    );
   }
 
   return (
-    <BrowserRouter>
-      <div className="notion-page">
-        <Navbar authenticated={authenticated} onAuthChange={checkAuth} />
-        <main className="notion-container notion-main">
-          <Routes>
-            <Route path="/" element={<Home authenticated={authenticated} />} />
-            <Route 
-              path="/fetch-emails" 
-              element={
-                authenticated ? (
-                  <FetchEmails />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/email-results" 
-              element={
-                authenticated ? (
-                  <EmailResults />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/view-all-results" 
-              element={
-                authenticated ? (
-                  <AllResults />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-            <Route 
-              path="/no-emails-found" 
-              element={
-                authenticated ? (
-                  <NoEmailsFound />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              } 
-            />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Box sx={{ minHeight: '100vh', backgroundColor: notionColors.background.default, pb: 6 }}>
+          <Navbar authenticated={authenticated} onAuthChange={checkAuth} />
+          <Box sx={{ maxWidth: '900px', width: '100%', mx: 'auto' }}>
+            <Routes>
+              <Route path="/" element={<Home authenticated={authenticated} />} />
+              <Route path="*" element={<Home authenticated={authenticated} />} />
+            </Routes>
+          </Box>
+        </Box>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

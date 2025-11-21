@@ -1,184 +1,222 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import {
+  Box,
+  Snackbar,
+  Alert,
+  Tabs,
+  Tab,
+} from '@mui/material';
+import {
+  Download as DownloadIcon,
+  List as ListIcon,
+} from '@mui/icons-material';
 import { api } from '../api';
+import type { FetchEmailsParams, FetchEmailsResponse, Task } from '../api';
+import { notionColors } from '../theme';
+import LandingPage from '../components/LandingPage';
+import PageHeader from '../components/PageHeader';
+import ProcessEmailsForm from '../components/ProcessEmailsForm';
+import CreatedTasksList from '../components/CreatedTasksList';
+import AllTasksTable from '../components/AllTasksTable';
+import SettingsDialog from '../components/SettingsDialog';
 
 interface HomeProps {
   authenticated: boolean;
 }
 
-export default function Home({ authenticated }: HomeProps) {
-  const [showSettings, setShowSettings] = useState(false);
-  const [settings, setSettings] = useState({
-    provider: 'google_tasks',
-    max: '',
-    window: '',
-  });
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
 
-  useEffect(() => {
-    const saved = localStorage.getItem('emailToTaskSettings');
-    if (saved) {
-      setSettings(JSON.parse(saved));
-    }
-  }, []);
-
-  const saveSettings = () => {
-    localStorage.setItem('emailToTaskSettings', JSON.stringify(settings));
-    setShowSettings(false);
-    showAlert('Settings saved successfully!');
-  };
-
-  const showAlert = (message: string) => {
-    // Simple alert implementation - can be enhanced with a toast library
-    alert(message);
-  };
-
-  if (authenticated) {
-    return (
-      <div className="notion-slide-up">
-        <div className="notion-card">
-          <div className="notion-card-header">
-            <h1 className="notion-card-title">
-              <i className="bi bi-check-circle notion-icon" style={{ color: 'var(--notion-success)' }}></i>
-              Connected to Gmail
-            </h1>
-            <p className="notion-card-subtitle">
-              You're successfully connected! You can now fetch emails and convert them to tasks.
-            </p>
-          </div>
-
-          <div className="notion-grid notion-grid-2">
-            <div className="notion-card">
-              <div className="notion-text-center">
-                <i className="bi bi-download notion-icon-xl" style={{ color: 'var(--notion-accent)' }}></i>
-                <h3 className="notion-mt-md">Fetch Emails</h3>
-                <p>Process emails from your Gmail account and convert them to tasks.</p>
-                <Link to="/fetch-emails" className="notion-btn notion-btn-primary notion-btn-lg">
-                  <i className="bi bi-download notion-icon"></i> Fetch Emails
-                </Link>
-              </div>
-            </div>
-            <div className="notion-card">
-              <div className="notion-text-center">
-                <i className="bi bi-sliders notion-icon-xl" style={{ color: 'var(--notion-text-secondary)' }}></i>
-                <h3 className="notion-mt-md">Settings</h3>
-                <p>Configure your email processing preferences and task provider.</p>
-                <button className="notion-btn notion-btn-lg" onClick={() => setShowSettings(true)}>
-                  <i className="bi bi-sliders notion-icon"></i> Settings
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {showSettings && (
-          <div className="notion-modal" style={{ display: 'block' }}>
-            <div className="notion-modal-content">
-              <div className="notion-modal-header">
-                <h3 className="notion-modal-title">
-                  <i className="bi bi-sliders notion-icon"></i> Settings
-                </h3>
-                <button type="button" className="notion-btn notion-btn-sm" onClick={() => setShowSettings(false)}>
-                  <i className="bi bi-x notion-icon"></i>
-                </button>
-              </div>
-              <div className="notion-modal-body">
-                <div className="notion-form-group">
-                  <label htmlFor="provider" className="notion-label">Task Provider</label>
-                  <select
-                    className="notion-select"
-                    id="provider"
-                    value={settings.provider}
-                    onChange={(e) => setSettings({ ...settings, provider: e.target.value })}
-                  >
-                    <option value="google_tasks">Google Tasks</option>
-                  </select>
-                </div>
-                <div className="notion-form-group">
-                  <label htmlFor="max" className="notion-label">Max Emails</label>
-                  <input
-                    type="number"
-                    className="notion-input"
-                    id="max"
-                    value={settings.max}
-                    onChange={(e) => setSettings({ ...settings, max: e.target.value })}
-                    min="1"
-                    placeholder="(blank = all)"
-                  />
-                </div>
-                <div className="notion-form-group">
-                  <label htmlFor="window" className="notion-label">Time Window</label>
-                  <select
-                    className="notion-select"
-                    id="window"
-                    value={settings.window}
-                    onChange={(e) => setSettings({ ...settings, window: e.target.value })}
-                  >
-                    <option value="">All emails</option>
-                    <option value="1d">Last 24 hours</option>
-                    <option value="7d">Last 7 days</option>
-                    <option value="30d">Last 30 days</option>
-                  </select>
-                </div>
-              </div>
-              <div className="notion-modal-footer">
-                <button type="button" className="notion-btn" onClick={() => setShowSettings(false)}>
-                  Cancel
-                </button>
-                <button type="button" className="notion-btn notion-btn-primary" onClick={saveSettings}>
-                  Save Settings
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
   return (
-    <div className="notion-slide-up">
-      <div className="notion-card notion-text-center" style={{ maxWidth: '500px', margin: '0 auto' }}>
-        <div className="notion-card-header">
-          <h1 className="notion-card-title" style={{ fontSize: '2rem', marginBottom: 'var(--notion-space-sm)', justifyContent: 'center' }}>
-            <i className="bi bi-envelope-check notion-icon-xl" style={{ color: 'var(--notion-text)' }}></i>
-            Taskflow
-          </h1>
-          <p className="lead" style={{ fontSize: '1rem', marginBottom: 'var(--notion-space-md)' }}>
-            Convert Gmail emails to tasks automatically
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--notion-space-lg)' }}>
-            <div style={{ textAlign: 'center' }}>
-              <i className="bi bi-shield-check notion-icon-lg" style={{ color: 'var(--notion-success)' }}></i>
-              <p style={{ margin: 'var(--notion-space-xs) 0 0 0', fontSize: '0.75rem', color: 'var(--notion-text-tertiary)' }}>Secure</p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <i className="bi bi-lightning notion-icon-lg" style={{ color: 'var(--notion-accent)' }}></i>
-              <p style={{ margin: 'var(--notion-space-xs) 0 0 0', fontSize: '0.75rem', color: 'var(--notion-text-tertiary)' }}>Fast</p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <i className="bi bi-check-square notion-icon-lg" style={{ color: 'var(--notion-success)' }}></i>
-              <p style={{ margin: 'var(--notion-space-xs) 0 0 0', fontSize: '0.75rem', color: 'var(--notion-text-tertiary)' }}>Simple</p>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 'var(--notion-space-lg)' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--notion-text-secondary)', margin: 0 }}>
-            Connect your Gmail account to start converting forwarded emails into organized tasks
-          </p>
-        </div>
-
-        <div className="notion-text-center">
-          <button
-            onClick={() => api.authorize()}
-            className="notion-btn notion-btn-primary notion-btn-lg"
-            style={{ fontSize: '16px', padding: '12px 24px' }}
-          >
-            <i className="bi bi-google notion-icon"></i> Connect with Google
-          </button>
-        </div>
-      </div>
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`tabpanel-${index}`}
+      aria-labelledby={`tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
     </div>
   );
 }
 
+export default function Home({ authenticated }: HomeProps) {
+  const [showSettings, setShowSettings] = useState(false);
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+  const [tabValue, setTabValue] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<FetchEmailsResponse | null>(null);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  
+  const [formData, setFormData] = useState<FetchEmailsParams>(() => {
+    const saved = localStorage.getItem('emailToTaskSettings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return {
+          provider: 'google_tasks',
+          max: undefined,
+          window: '',
+          since_hours: undefined,
+          since: '',
+          q: '',
+          dry_run: false,
+        };
+      }
+    }
+    return {
+      provider: 'google_tasks',
+      max: undefined,
+      window: '',
+      since_hours: undefined,
+      since: '',
+      q: '',
+      dry_run: false,
+    };
+  });
+
+  useEffect(() => {
+    if (authenticated && tabValue === 1) {
+      loadAllTasks();
+    }
+  }, [authenticated, tabValue]);
+
+  const loadAllTasks = async () => {
+    try {
+      setLoadingTasks(true);
+      const data = await api.getAllTasks();
+      setAllTasks(data.tasks);
+    } catch (err) {
+      setSnackbarMessage(err instanceof Error ? err.message : 'Failed to load tasks');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const saveSettings = () => {
+    localStorage.setItem('emailToTaskSettings', JSON.stringify(formData));
+    setShowSettings(false);
+    setSnackbarMessage('Settings saved successfully!');
+    setSnackbarSeverity('success');
+    setShowSnackbar(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setResults(null);
+
+    try {
+      const params: FetchEmailsParams = {
+        ...formData,
+        max: formData.max ? Number(formData.max) : undefined,
+        since_hours: formData.since_hours ? Number(formData.since_hours) : undefined,
+        dry_run: formData.dry_run || false,
+      };
+
+      const result = await api.fetchEmails(params);
+      setResults(result);
+      
+      localStorage.setItem('emailToTaskSettings', JSON.stringify(formData));
+
+      if (result.processed === 0 && result.already_processed === 0) {
+        setSnackbarMessage('No emails found matching your criteria.');
+        setSnackbarSeverity('warning');
+        setShowSnackbar(true);
+      } else if (result.processed === 0 && result.already_processed > 0) {
+        setSnackbarMessage(`Found ${result.already_processed} emails, but they were already processed. No new tasks created.`);
+        setSnackbarSeverity('info');
+        setShowSnackbar(true);
+      } else {
+        setSnackbarMessage(`Successfully processed ${result.processed} email(s) and created ${result.processed} task(s)!`);
+        setSnackbarSeverity('success');
+        setShowSnackbar(true);
+        if (tabValue === 1) {
+          loadAllTasks();
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while processing emails');
+      setSnackbarMessage(err instanceof Error ? err.message : 'An error occurred');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!authenticated) {
+    return <LandingPage />;
+  }
+
+  return (
+    <>
+      <Box sx={{ maxWidth: 900, mx: 'auto', px: 3, pt: 4 }}>
+        <Box sx={{ mb: 4 }}>
+          <PageHeader onSettingsClick={() => setShowSettings(true)} />
+
+          <Box sx={{ borderBottom: `1px solid ${notionColors.border.default}`, mb: 4 }}>
+            <Tabs 
+              value={tabValue} 
+              onChange={(_, newValue) => setTabValue(newValue)}
+            >
+              <Tab label="Process Emails" icon={<DownloadIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+              <Tab label="All Tasks" icon={<ListIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+            </Tabs>
+          </Box>
+
+          <TabPanel value={tabValue} index={0}>
+            <ProcessEmailsForm
+              formData={formData}
+              onFormDataChange={setFormData}
+              onSubmit={handleSubmit}
+              loading={loading}
+              error={error}
+            />
+            {results && <CreatedTasksList results={results} />}
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={1}>
+            <AllTasksTable
+              tasks={allTasks}
+              loading={loadingTasks}
+              onRefresh={loadAllTasks}
+            />
+          </TabPanel>
+        </Box>
+      </Box>
+
+      <SettingsDialog
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        formData={formData}
+        onFormDataChange={setFormData}
+        onSave={saveSettings}
+      />
+
+      <Snackbar
+        open={showSnackbar}
+        autoHideDuration={6000}
+        onClose={() => setShowSnackbar(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setShowSnackbar(false)} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
+    </>
+  );
+}

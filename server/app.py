@@ -2,8 +2,9 @@ from __future__ import annotations
 import os
 import sys
 import base64
+import logging
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Tuple
+from typing import Tuple
 from pathlib import Path
 
 # Add project root to Python path to enable server.* imports
@@ -11,7 +12,7 @@ project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from flask import Flask, request, redirect, session, url_for, jsonify, render_template, flash, send_from_directory
+from flask import Flask, request, redirect, session, url_for, jsonify, flash, send_from_directory
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -46,8 +47,30 @@ DEFAULT_PROVIDER = os.getenv("DEFAULT_TASK_PROVIDER", "google_tasks")
 DEFAULT_FETCH_LIMIT = int(os.getenv("FETCH_LIMIT", "10"))
 TASKS_LIST_TITLE = os.getenv("TASKS_LIST_TITLE", "Email Tasks")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
 # Ensure DB tables exist at startup
+logger.info("Initializing database...")
 init_db()
+logger.info("Database initialized successfully")
+
+# Request logging middleware
+@app.before_request
+def log_request_info():
+    logger.info(f"Request: {request.method} {request.path} - IP: {request.remote_addr}")
+    if request.method in ['POST', 'PUT', 'PATCH']:
+        logger.debug(f"Request data: {dict(request.values)}")
+
+@app.after_request
+def log_response_info(response):
+    logger.info(f"Response: {request.method} {request.path} - Status: {response.status_code}")
+    return response
 
 def _get_credentials():
     creds_info = session.get("credentials")
@@ -215,18 +238,26 @@ def gmail_list_ids(service, q: str, max_list: int | None = 50, min_internal_ms: 
     """
     ids: list[str] = []
     page_token = None
+    page_num = 0
 
     # Page size is capped by Gmail at 100 anyway
     page_size = 100 if max_list is None else min(100, max_list if max_list > 0 else 100)
+    logger.debug(f"Fetching Gmail messages: query='{q}', max_list={max_list}, page_size={page_size}")
 
     while True:
-        resp = (
-            service.users()
-            .messages()
-            .list(userId="me", q=q, maxResults=page_size, pageToken=page_token)
-            .execute()
-        )
-        messages = resp.get("messages", [])
+        page_num += 1
+        try:
+            resp = (
+                service.users()
+                .messages()
+                .list(userId="me", q=q, maxResults=page_size, pageToken=page_token)
+                .execute()
+            )
+            messages = resp.get("messages", [])
+            logger.debug(f"Gmail API page {page_num}: received {len(messages)} messages")
+        except Exception as e:
+            logger.error(f"Error fetching Gmail messages (page {page_num}): {e}", exc_info=True)
+            raise
 
         if min_internal_ms is None:
             ids.extend(m["id"] for m in messages)
@@ -249,8 +280,10 @@ def gmail_list_ids(service, q: str, max_list: int | None = 50, min_internal_ms: 
 
         page_token = resp.get("nextPageToken")
         if not page_token:
+            logger.debug(f"Reached end of Gmail results after {page_num} page(s)")
             break
 
+    logger.debug(f"Total Gmail message IDs collected: {len(ids)}")
     return ids
 
 
@@ -281,24 +314,32 @@ def task_exists(session, email_id: int, provider: str) -> bool:
 
 
 def dispatch_task(provider: str, payload: dict) -> dict:
+    logger.debug(f"Dispatching task to provider: {provider}")
     if provider == "google_tasks":
         tasks_service = get_tasks_service()
         if not tasks_service:
+            logger.error("Google Tasks service not available - not authenticated")
             raise GoogleTasksError("Not authenticated for Google Tasks")
+        logger.debug(f"Creating Google Task with title: {payload.get('subject', 'No title')}")
         return create_google_task(tasks_service, TASKS_LIST_TITLE, payload)
 
+    logger.error(f"Unsupported task provider: {provider}")
     raise ValueError(f"Unsupported provider '{provider}'")
 
 # API endpoint to check auth status
 @app.route("/api/auth/status")
 def auth_status():
-    return jsonify({"authenticated": "credentials" in session})
+    is_authenticated = "credentials" in session
+    logger.info(f"Auth status check: authenticated={is_authenticated}")
+    return jsonify({"authenticated": is_authenticated})
 
 # API endpoint to get user info (if needed)
 @app.route("/api/user")
 def user_info():
     if "credentials" not in session:
+        logger.warning("User info requested but not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
+    logger.info("User info requested: authenticated")
     return jsonify({"authenticated": True})
 
 # Serve React static assets
@@ -341,80 +382,102 @@ npm run build
 
 @app.route("/authorize")
 def authorize():
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI,
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-    )
-    session["state"] = state
-    return redirect(authorization_url)
+    logger.info("OAuth authorization initiated")
+    try:
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI,
+        )
+        authorization_url, state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+        )
+        session["state"] = state
+        logger.info(f"OAuth flow started, redirecting to authorization URL")
+        return redirect(authorization_url)
+    except Exception as e:
+        logger.error(f"Error initiating OAuth flow: {e}", exc_info=True)
+        raise
 
 @app.route("/oauth2callback")
 def oauth2callback():
-    state = session.get("state")
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        state=state,
-        redirect_uri=REDIRECT_URI,
-    )
-    flow.fetch_token(authorization_response=request.url)
-    credentials = flow.credentials
-    session["credentials"] = {
-        "token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
-        "scopes": credentials.scopes,
-    }
-    # Redirect to React app
-    return redirect("/")
+    logger.info("OAuth callback received")
+    try:
+        state = session.get("state")
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            state=state,
+            redirect_uri=REDIRECT_URI,
+        )
+        flow.fetch_token(authorization_response=request.url)
+        credentials = flow.credentials
+        session["credentials"] = {
+            "token": credentials.token,
+            "refresh_token": credentials.refresh_token,
+            "token_uri": credentials.token_uri,
+            "client_id": credentials.client_id,
+            "client_secret": credentials.client_secret,
+            "scopes": credentials.scopes,
+        }
+        logger.info("OAuth authentication successful, credentials stored in session")
+        return redirect("/")
+    except Exception as e:
+        logger.error(f"Error in OAuth callback: {e}", exc_info=True)
+        raise
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
+    logger.info("User logout requested")
     session.pop("credentials", None)
+    logger.info("User logged out successfully")
     return jsonify({"success": True, "message": "Logged out successfully"})
 
 # API endpoint for all results
 @app.route("/api/tasks/all")
 def api_all_results():
+    logger.info("Fetching all tasks")
     if "credentials" not in session:
+        logger.warning("All tasks requested but not authenticated")
         return jsonify({"error": "Not authenticated"}), 401
 
-    with db_session() as s:
-        rows = (
-            s.query(Task, Email)
-            .join(Email, Email.id == Task.email_id)
-            .order_by(Task.created_at.desc())
-            .limit(200)
-            .all()
-        )
-        items = []
-        for t, e in rows:
-            md = t.provider_metadata or {}
-            items.append({
-                "provider": t.provider,
-                "provider_task_id": t.provider_task_id,
-                "created_at": t.created_at.isoformat() if t.created_at else "",
-                "email_subject": e.subject,
-                "email_sender": e.sender,
-                "email_received_at": e.received_at.isoformat() if e.received_at else "",
-                "task_title": md.get("title"),
-                "task_link": md.get("selfLink"),
-                "task_due": md.get("due"),
-            })
-    return jsonify({"tasks": items, "total": len(items)})
+    try:
+        with db_session() as s:
+            rows = (
+                s.query(Task, Email)
+                .join(Email, Email.id == Task.email_id)
+                .order_by(Task.created_at.desc())
+                .limit(200)
+                .all()
+            )
+            items = []
+            for t, e in rows:
+                md = t.provider_metadata or {}
+                items.append({
+                    "provider": t.provider,
+                    "provider_task_id": t.provider_task_id,
+                    "created_at": t.created_at.isoformat() if t.created_at else "",
+                    "email_subject": e.subject,
+                    "email_sender": e.sender,
+                    "email_received_at": e.received_at.isoformat() if e.received_at else "",
+                    "task_title": md.get("title"),
+                    "task_link": md.get("selfLink"),
+                    "task_due": md.get("due"),
+                })
+        logger.info(f"Retrieved {len(items)} tasks from database")
+        return jsonify({"tasks": items, "total": len(items)})
+    except Exception as e:
+        logger.error(f"Error fetching all tasks: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch tasks"}), 500
 
 @app.route("/api/fetch-emails", methods=["POST", "GET"])
 def fetch_emails():
+    logger.info("Fetch emails request received")
     service = get_gmail_service()
     if not service:
+        logger.warning("Fetch emails requested but not authenticated")
         return jsonify({"error": "Not authenticated. Please log in first."}), 401
 
     provider = request.values.get("provider", DEFAULT_PROVIDER)
@@ -425,6 +488,9 @@ def fetch_emails():
     since_hours = request.values.get("since_hours")
     since_iso = request.values.get("since")
     dry_run = (request.values.get("dry_run", "false").lower() == "true")
+    
+    logger.info(f"Fetch emails params: provider={provider}, window={window}, max={max_msgs}, "
+                f"since_hours={since_hours}, since={since_iso}, q={custom_query}, dry_run={dry_run}")
 
     # Build Gmail query
     query_parts = []
@@ -442,8 +508,11 @@ def fetch_emails():
         query_parts.append(f"newer_than:{window}")
 
     query = " ".join(query_parts) or "in:inbox"
+    logger.info(f"Gmail query: {query}")
 
+    logger.info(f"Fetching email IDs from Gmail (max={max_msgs})...")
     ids = gmail_list_ids(service, q=query, max_list=max_msgs, min_internal_ms=min_internal_ms)
+    logger.info(f"Found {len(ids)} email(s) matching query")
 
     created_tasks = []
     already_processed_count = 0
@@ -466,8 +535,11 @@ def fetch_emails():
                     continue
 
             payload = message_to_payload(full_msg)
+            subject = payload.get("subject", "(No subject)")
+            logger.debug(f"Processing email {considered}/{len(ids)}: {subject[:50]}...")
 
             # ML Classification and Task Generation
+            logger.debug(f"Running ML classification for email: {subject}")
             ml_result = ml_decide(payload)
             should_create = ml_result.get("should_create", True)
             confidence = ml_result.get("confidence", 0.5)
@@ -483,8 +555,7 @@ def fetch_emails():
                     email_row.first_processed_at = datetime.now(timezone.utc)
                 email_row.last_processed_at = datetime.now(timezone.utc)
                 email_row.processed = True
-                # Log the skip decision
-                print(f"Skipping email '{payload.get('subject')}' - Confidence: {confidence:.2f}, Reason: {reasoning}")
+                logger.info(f"Skipping email '{subject}' - ML decision: confidence={confidence:.2f}, reason={reasoning}")
                 continue
 
             # Use ML-generated title and notes
@@ -501,9 +572,11 @@ def fetch_emails():
             # Dedupe per provider
             if task_exists(s, email_row.id, provider):
                 already_processed_count += 1
+                logger.debug(f"Email '{subject}' already processed for provider {provider}, skipping")
                 continue
 
             if dry_run:
+                logger.info(f"DRY RUN: Would create task for email '{subject}'")
                 created_tasks.append({
                     "message_id": message_id,
                     "provider": provider,
@@ -512,19 +585,12 @@ def fetch_emails():
                 continue
 
             try:
+                logger.info(f"Creating task for email '{subject}' with provider {provider}")
                 task = dispatch_task(provider, payload)
-            except GoogleTasksError as err:
-                if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-                    return jsonify({"error": str(err)}), 400
-                else:
-                    flash(f"Task provider error: {str(err)}", "error")
-                    return redirect(url_for("fetch_emails_page"))
-            except ValueError as err:
-                if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-                    return jsonify({"error": str(err)}), 400
-                else:
-                    flash(f"Error: {str(err)}", "error")
-                    return redirect(url_for("fetch_emails_page"))
+                logger.info(f"Task created successfully: {task.get('id', 'unknown')} - {task.get('title', 'no title')}")
+            except Exception as err:
+                logger.error(f"Error creating task for email '{subject}': {err}", exc_info=True)
+                return jsonify({"error": f"Error creating task: {str(err)}"}), 400
 
             # Record task in DB
             t = Task(
@@ -556,6 +622,10 @@ def fetch_emails():
         "already_processed": already_processed_count,
         "considered": considered
     }
+    
+    logger.info(f"Email processing complete: {len(created_tasks)} tasks created, "
+                f"{already_processed_count} already processed, {len(ids)} total found, "
+                f"{considered} considered")
 
     return jsonify(result)
 
@@ -563,4 +633,6 @@ def fetch_emails():
 if __name__ == "__main__":
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     port = int(os.getenv("PORT", 5000))
+    logger.info(f"Starting Flask server on 127.0.0.1:{port}")
+    logger.info(f"Debug mode: True")
     app.run("127.0.0.1", port, debug=True)

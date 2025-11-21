@@ -9,14 +9,18 @@ from __future__ import annotations
 import os
 import json
 import re
+import logging
 from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+    logger.warning("OpenAI library not available - ML features will use fallback behavior")
 
 
 def clean_html_to_text(html: str) -> str:
@@ -105,6 +109,7 @@ def classify_and_generate_task(
         - reasoning: str - explanation of classification decision
     """
     if not OPENAI_AVAILABLE:
+        logger.warning("OpenAI library not available, using fallback behavior")
         # Fallback: create task with original content
         return {
             "should_create": True,
@@ -116,6 +121,7 @@ def classify_and_generate_task(
     
     api_key = api_key or os.getenv("OPENAI_API_KEY")
     if not api_key:
+        logger.warning("No OpenAI API key configured, using fallback behavior")
         # Fallback: create task with original content
         return {
             "should_create": True,
@@ -127,6 +133,9 @@ def classify_and_generate_task(
     
     email_content = prepare_email_content(payload)
     sender = payload.get("sender", "Unknown")
+    subject = email_content.get("subject", "(No subject)")
+    
+    logger.debug(f"Classifying email: subject='{subject}', sender='{sender}'")
     
     # Build prompt for classification and generation
     prompt = f"""You are an intelligent email assistant that helps users manage their tasks by analyzing emails.
@@ -182,6 +191,7 @@ For task notes:
 """
 
     try:
+        logger.debug(f"Calling OpenAI API with model: {model}")
         client = OpenAI(api_key=api_key)
         
         response = client.chat.completions.create(
@@ -203,6 +213,7 @@ For task notes:
         
         result_text = response.choices[0].message.content
         result = json.loads(result_text)
+        logger.debug(f"OpenAI API response: should_create={result.get('should_create')}, confidence={result.get('confidence', 0):.2f}")
         
         # Validate and sanitize response
         return {
@@ -214,7 +225,7 @@ For task notes:
         }
         
     except json.JSONDecodeError as e:
-        print(f"Failed to parse OpenAI response as JSON: {e}")
+        logger.error(f"Failed to parse OpenAI response as JSON: {e}")
         # Fallback to creating task
         return {
             "should_create": True,
@@ -224,7 +235,7 @@ For task notes:
             "reasoning": "JSON parsing failed, using fallback"
         }
     except Exception as e:
-        print(f"Error calling OpenAI API: {e}")
+        logger.error(f"Error calling OpenAI API: {e}", exc_info=True)
         # Fallback to creating task
         return {
             "should_create": True,
