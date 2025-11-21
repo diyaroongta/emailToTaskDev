@@ -46,7 +46,12 @@ A powerful Flask application that automatically converts Gmail emails into tasks
 
 3. **Start the application**
    ```bash
-   python3 app.py
+   python3 server/run.py
+   ```
+   
+   Or run directly:
+   ```bash
+   python3 server/app.py
    ```
 
 4. **Open your browser**

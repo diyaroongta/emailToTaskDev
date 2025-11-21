@@ -1,10 +1,17 @@
 from __future__ import annotations
 import os
+import sys
 import base64
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Tuple
+from pathlib import Path
 
-from flask import Flask, request, redirect, session, url_for, jsonify, render_template, flash
+# Add project root to Python path to enable server.* imports
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from flask import Flask, request, redirect, session, url_for, jsonify, render_template, flash, send_from_directory
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -12,26 +19,21 @@ from bs4 import BeautifulSoup
 
 from dateutil import parser as dateutil_parser
 
-
-from providers.google_tasks import create_task as create_google_task, GoogleTasksError
-
-from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv(dotenv_path=Path(__file__).with_name('.env'), override=False)
+# Load .env from project root (parent directory)
+load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env', override=False)
 
-from db import db_session, init_db, Email, Task
-from ml import ml_decide 
+from server.providers.google_tasks import create_task as create_google_task, GoogleTasksError
+from server.db import db_session, init_db, Email, Task
+from server.ml import ml_decide 
 
-
-
-
-
-
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../client/dist", template_folder="../client/dist")
 app.secret_key = os.getenv("FLASK_SECRET", "dev-change-me")
-
-CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRETS", "client_secret.json")
+_project_root = Path(__file__).parent.parent.resolve()
+_default_secrets_path = _project_root / "client_secret.json"
+_env_secrets = os.getenv("GOOGLE_CLIENT_SECRETS")
+CLIENT_SECRETS_FILE = _env_secrets if _env_secrets and os.path.isabs(_env_secrets) else str(_project_root / (_env_secrets or "client_secret.json"))
 
 # SCOPES: Gmail read-only + Google Tasks write
 SCOPES = [
@@ -40,19 +42,12 @@ SCOPES = [
 ]
 
 REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://127.0.0.1:5000/oauth2callback")
-
-
-
-
 DEFAULT_PROVIDER = os.getenv("DEFAULT_TASK_PROVIDER", "google_tasks")
 DEFAULT_FETCH_LIMIT = int(os.getenv("FETCH_LIMIT", "10"))
 TASKS_LIST_TITLE = os.getenv("TASKS_LIST_TITLE", "Email Tasks")
 
 # Ensure DB tables exist at startup
 init_db()
-
-
-
 
 def _get_credentials():
     creds_info = session.get("credentials")
@@ -71,8 +66,6 @@ def get_tasks_service():
     if not creds:
         return None
     return build("tasks", "v1", credentials=creds)
-
-
 
 
 def get_header(payload: dict, name: str) -> str | None:
@@ -296,12 +289,55 @@ def dispatch_task(provider: str, payload: dict) -> dict:
 
     raise ValueError(f"Unsupported provider '{provider}'")
 
+# API endpoint to check auth status
+@app.route("/api/auth/status")
+def auth_status():
+    return jsonify({"authenticated": "credentials" in session})
 
+# API endpoint to get user info (if needed)
+@app.route("/api/user")
+def user_info():
+    if "credentials" not in session:
+        return jsonify({"error": "Not authenticated"}), 401
+    return jsonify({"authenticated": True})
 
+# Serve React static assets
+@app.route("/assets/<path:filename>")
+def serve_react_assets(filename):
+    import os
+    assets_path = os.path.join(os.path.dirname(__file__), "..", "client", "dist", "assets")
+    if os.path.exists(assets_path):
+        return send_from_directory(assets_path, filename)
+    return "React build not found. Run 'cd client && npm install && npm run build'", 404
+
+# Serve React app for all frontend routes (SPA fallback)
 @app.route("/")
-def index():
-    authed = "credentials" in session
-    return render_template("home.html", authed=authed)
+@app.route("/fetch-emails")
+@app.route("/email-results")
+@app.route("/view-all-results")
+@app.route("/no-emails-found")
+def serve_react_app():
+    import os
+    dist_path = os.path.join(os.path.dirname(__file__), "..", "client", "dist")
+    index_path = os.path.join(dist_path, "index.html")
+    if os.path.exists(index_path):
+        return send_from_directory(dist_path, "index.html")
+    # Show helpful message if React build doesn't exist
+    return """
+    <html>
+        <head><title>Taskflow - Setup Required</title></head>
+        <body style="font-family: system-ui; padding: 2rem; max-width: 600px; margin: 0 auto;">
+            <h1>React Frontend Not Built</h1>
+            <p>Please build the React frontend by running:</p>
+            <pre style="background: #f5f5f5; padding: 1rem; border-radius: 4px;">
+cd client
+npm install
+npm run build
+            </pre>
+            <p>Then restart the Flask server.</p>
+        </body>
+    </html>
+    """, 503
 
 @app.route("/authorize")
 def authorize():
@@ -337,54 +373,19 @@ def oauth2callback():
         "client_secret": credentials.client_secret,
         "scopes": credentials.scopes,
     }
-    flash("Successfully connected to Google (Gmail + Tasks)!", "success")
-    return redirect(url_for("index"))
+    # Redirect to React app
+    return redirect("/")
 
-@app.route("/logout")
+@app.route("/api/logout", methods=["POST"])
 def logout():
     session.pop("credentials", None)
-    flash("You have been logged out successfully.", "info")
-    return redirect(url_for("index"))
+    return jsonify({"success": True, "message": "Logged out successfully"})
 
-@app.route("/fetch-emails")
-def fetch_emails_page():
+# API endpoint for all results
+@app.route("/api/tasks/all")
+def api_all_results():
     if "credentials" not in session:
-        flash("Please log in with Google first.", "warning")
-        return redirect(url_for("authorize"))
-    return render_template("fetch_emails.html")
-
-@app.route("/no-emails-found")
-def no_emails_found():
-    if "credentials" not in session:
-        return redirect(url_for("authorize"))
-    # Optional flash messages via ?message=no_results|error
-    if request.args.get("message") == "no_results":
-        flash("Still no emails found. Try a different search.", "warning")
-    elif request.args.get("message") == "error":
-        error_msg = request.args.get("error", "An unknown error occurred")
-        flash(f"Error: {error_msg}", "error")
-    return render_template("no_emails_found.html")
-
-@app.route("/email-results")
-def email_results():
-    if "credentials" not in session:
-        return redirect(url_for("authorize"))
-    results_data = session.get("email_results")
-    if not results_data:
-        flash("No results found. Please process emails first.", "warning")
-        return redirect(url_for("fetch_emails_page"))
-    session.pop("email_results", None)
-    return render_template(
-        "email_results.html",
-        processed_count=results_data["processed_count"],
-        query=results_data["query"],
-        created_tasks=results_data["created_tasks"]
-    )
-
-@app.route("/view-all-results")
-def view_all_results():
-    if "credentials" not in session:
-        return redirect(url_for("authorize"))
+        return jsonify({"error": "Not authenticated"}), 401
 
     with db_session() as s:
         rows = (
@@ -408,7 +409,7 @@ def view_all_results():
                 "task_link": md.get("selfLink"),
                 "task_due": md.get("due"),
             })
-    return render_template("all_results.html", tasks_history=items, total_tasks=len(items))
+    return jsonify({"tasks": items, "total": len(items)})
 
 @app.route("/api/fetch-emails", methods=["POST", "GET"])
 def fetch_emails():
@@ -555,23 +556,6 @@ def fetch_emails():
         "already_processed": already_processed_count,
         "considered": considered
     }
-
-    # HTML redirect to results page with flash
-    if request.accept_mimetypes.accept_html:
-        if len(created_tasks) == 0 and already_processed_count == 0:
-            flash("No emails found with the current search criteria.", "warning")
-            return redirect(url_for("no_emails_found"))
-        elif len(created_tasks) == 0 and already_processed_count > 0:
-            flash(f"Found {already_processed_count} emails, but they were already processed. No new tasks created.", "info")
-            return redirect(url_for("fetch_emails_page"))
-        else:
-            flash(f"Successfully processed {len(created_tasks)} emails!", "success")
-            session["email_results"] = {
-                "processed_count": len(created_tasks),
-                "query": query,
-                "created_tasks": created_tasks
-            }
-            return redirect(url_for("email_results"))
 
     return jsonify(result)
 

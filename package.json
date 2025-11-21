@@ -1,0 +1,10 @@
+{
+    "scripts": {
+        "deps": "cd client && npm install && cd ../ && cd server && pip install -r requirements.txt",
+        "dev": "concurrently \"cd client && npm run dev\" \"cd server && python3 run.py\"",
+        "git": "git add . && git commit -m 'update' && git push"
+    },
+    "dependencies": {
+        "concurrently": "^9.1.0"
+    }
+}

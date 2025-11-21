@@ -4,12 +4,13 @@ Test script for ML classification and task generation.
 Usage: python3 test_ml.py
 """
 
-from ml import classify_and_generate_task, clean_html_to_text
+from server.ml import classify_and_generate_task, clean_html_to_text
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (in project root)
+load_dotenv(dotenv_path=Path(__file__).parent.parent / '.env')
 
 # Test email samples
 test_emails = [
