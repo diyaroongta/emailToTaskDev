@@ -13,6 +13,9 @@ import json
 import re
 from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
+from datetime import timezone, timedelta
+from dateutil import parser as date_parser
+
 
 try:
     from openai import OpenAI
@@ -238,11 +241,15 @@ For task notes:
         
         # Validate meeting field
         meeting_info = result.get("meeting")
-        if meeting_info:
-            required_keys = ["is_meeting", "summary", "start_datetime", "end_datetime"]
-            if not all(k in meeting_info for k in required_keys):
-                result["meeting"] = None
+        if meeting_info and meeting_info.get("is_meeting"):
+            # If start_datetime is missing, attempt to extract it from the email body
+            if not meeting_info.get("start_datetime"):
+                start_dt, end_dt = extract_meeting_datetime(payload.get("body") or "")
+                if start_dt:
+                    meeting_info["start_datetime"] = start_dt
+                    meeting_info["end_datetime"] = end_dt
 
+      
         # Validate and sanitize response
         return {
             "should_create": bool(result.get("should_create", True)),

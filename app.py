@@ -3,7 +3,7 @@ import os
 import base64
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Tuple
-
+from dateutil import parser as date_parser
 from flask import Flask, request, redirect, session, url_for, jsonify, render_template, flash
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
@@ -303,6 +303,11 @@ def dispatch_task(provider: str, payload: dict) -> dict:
     raise ValueError(f"Unsupported provider '{provider}'")
 
 def create_google_calendar_event(meeting: dict):
+    """
+    Create a Google Calendar event for a meeting.
+    Automatically uses start/end times from the meeting dict, or
+    attempts to infer them from the email body or summary.
+    """
     service = get_calendar_service()
     if not service:
         print("Not authenticated for Google Calendar")
@@ -357,6 +362,7 @@ def create_google_calendar_event(meeting: dict):
     except Exception as e:
         print(f"Error creating Google Calendar event: {e}")
         return None
+
 
 
 @app.route("/")
