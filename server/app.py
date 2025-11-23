@@ -4,7 +4,7 @@ import sys
 import base64
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Tuple
+from typing import Any, Dict, Tuple
 from pathlib import Path
 
 # Add project root to Python path to enable server.* imports
@@ -40,6 +40,7 @@ CLIENT_SECRETS_FILE = _env_secrets if _env_secrets and os.path.isabs(_env_secret
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/calendar.events",
 ]
 
 REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://127.0.0.1:5000/oauth2callback")
@@ -90,6 +91,11 @@ def get_tasks_service():
         return None
     return build("tasks", "v1", credentials=creds)
 
+def get_calendar_service():
+    creds = _get_credentials()
+    if not creds:
+        return None
+    return build("calendar", "v3", credentials=creds)
 
 def get_header(payload: dict, name: str) -> str | None:
     for header in payload.get("headers", []):
@@ -247,13 +253,13 @@ def gmail_list_ids(service, q: str, max_list: int | None = 50, min_internal_ms: 
     while True:
         page_num += 1
         try:
-        resp = (
-            service.users()
-            .messages()
-            .list(userId="me", q=q, maxResults=page_size, pageToken=page_token)
-            .execute()
-        )
-        messages = resp.get("messages", [])
+            resp = (
+                service.users()
+                .messages()
+                .list(userId="me", q=q, maxResults=page_size, pageToken=page_token)
+                .execute()
+            )
+            messages = resp.get("messages", [])
             logger.debug(f"Gmail API page {page_num}: received {len(messages)} messages")
         except Exception as e:
             logger.error(f"Error fetching Gmail messages (page {page_num}): {e}", exc_info=True)
@@ -333,6 +339,67 @@ def auth_status():
     logger.info(f"Auth status check: authenticated={is_authenticated}")
     return jsonify({"authenticated": is_authenticated})
 
+def create_google_calendar_event(meeting: dict):
+    """
+    Create a Google Calendar event for a meeting.
+    Automatically uses start/end times from the meeting dict, or
+    attempts to infer them from the email body or summary.
+    """
+    service = get_calendar_service()
+    if not service:
+        logger.warning("Not authenticated for Google Calendar")
+        return None
+
+    raw_start = meeting.get("start_datetime")
+    raw_end = meeting.get("end_datetime")
+    now_utc = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+
+    # Parse supplied start time or fall back to now
+    if raw_start:
+        try:
+            start_obj = dateutil_parser.isoparse(raw_start)
+        except Exception:
+            start_obj = now_utc
+    else:
+        start_obj = now_utc
+
+    # Never schedule meetings in the past
+    if start_obj < now_utc:
+        start_obj = now_utc
+
+    start_dt = start_obj.isoformat()
+
+    # Parse end time or default to one hour after start
+    if raw_end:
+        try:
+            end_obj = dateutil_parser.isoparse(raw_end)
+        except Exception:
+            end_obj = start_obj + timedelta(hours=1)
+    else:
+        end_obj = start_obj + timedelta(hours=1)
+
+    if end_obj <= start_obj:
+        end_obj = start_obj + timedelta(hours=1)
+
+    end_dt = end_obj.isoformat()
+
+    event = {
+        "summary": meeting.get("summary") or "Meeting",
+        "location": meeting.get("location"),
+        "description": meeting.get("summary"),
+        "start": {"dateTime": start_dt, "timeZone": "UTC"},
+        "end": {"dateTime": end_dt, "timeZone": "UTC"},
+        "attendees": [{"email": p} for p in meeting.get("participants", []) if p],
+    }
+
+    try:
+        created_event = service.events().insert(calendarId="primary", body=event).execute()
+        logger.info(f"Created Google Calendar event: {created_event.get('htmlLink')}")
+        return created_event
+    except Exception as e:
+        logger.error(f"Error creating Google Calendar event: {e}", exc_info=True)
+        return None
+
 # API endpoint to get user info (if needed)
 @app.route("/api/user")
 def user_info():
@@ -384,19 +451,19 @@ npm run build
 def authorize():
     logger.info("OAuth authorization initiated")
     try:
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        redirect_uri=REDIRECT_URI,
-    )
-    authorization_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-    )
-    session["state"] = state
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            redirect_uri=REDIRECT_URI,
+        )
+        authorization_url, state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+        )
+        session["state"] = state
         logger.info(f"OAuth flow started, redirecting to authorization URL")
-    return redirect(authorization_url)
+        return redirect(authorization_url)
     except Exception as e:
         logger.error(f"Error initiating OAuth flow: {e}", exc_info=True)
         raise
@@ -405,25 +472,25 @@ def authorize():
 def oauth2callback():
     logger.info("OAuth callback received")
     try:
-    state = session.get("state")
-    flow = Flow.from_client_secrets_file(
-        CLIENT_SECRETS_FILE,
-        scopes=SCOPES,
-        state=state,
-        redirect_uri=REDIRECT_URI,
-    )
-    flow.fetch_token(authorization_response=request.url)
-    credentials = flow.credentials
-    session["credentials"] = {
-        "token": credentials.token,
-        "refresh_token": credentials.refresh_token,
-        "token_uri": credentials.token_uri,
-        "client_id": credentials.client_id,
-        "client_secret": credentials.client_secret,
-        "scopes": credentials.scopes,
-    }
+        state = session.get("state")
+        flow = Flow.from_client_secrets_file(
+            CLIENT_SECRETS_FILE,
+            scopes=SCOPES,
+            state=state,
+            redirect_uri=REDIRECT_URI,
+        )
+        flow.fetch_token(authorization_response=request.url)
+        credentials = flow.credentials
+        session["credentials"] = {
+            "token": credentials.token,
+            "refresh_token": credentials.refresh_token,
+            "token_uri": credentials.token_uri,
+            "client_id": credentials.client_id,
+            "client_secret": credentials.client_secret,
+            "scopes": credentials.scopes,
+        }
         logger.info("OAuth authentication successful, credentials stored in session")
-    return redirect("/")
+        return redirect("/")
     except Exception as e:
         logger.error(f"Error in OAuth callback: {e}", exc_info=True)
         raise
@@ -444,30 +511,30 @@ def api_all_results():
         return jsonify({"error": "Not authenticated"}), 401
 
     try:
-    with db_session() as s:
-        rows = (
-            s.query(Task, Email)
-            .join(Email, Email.id == Task.email_id)
-            .order_by(Task.created_at.desc())
-            .limit(200)
-            .all()
-        )
-        items = []
-        for t, e in rows:
-            md = t.provider_metadata or {}
-            items.append({
-                "provider": t.provider,
-                "provider_task_id": t.provider_task_id,
-                "created_at": t.created_at.isoformat() if t.created_at else "",
-                "email_subject": e.subject,
-                "email_sender": e.sender,
-                "email_received_at": e.received_at.isoformat() if e.received_at else "",
-                "task_title": md.get("title"),
-                "task_link": md.get("selfLink"),
-                "task_due": md.get("due"),
-            })
-        logger.info(f"Retrieved {len(items)} tasks from database")
-    return jsonify({"tasks": items, "total": len(items)})
+        with db_session() as s:
+            rows = (
+                s.query(Task, Email)
+                .join(Email, Email.id == Task.email_id)
+                .order_by(Task.created_at.desc())
+                .limit(200)
+                .all()
+            )
+            items = []
+            for t, e in rows:
+                md = t.provider_metadata or {}
+                items.append({
+                    "provider": t.provider,
+                    "provider_task_id": t.provider_task_id,
+                    "created_at": t.created_at.isoformat() if t.created_at else "",
+                    "email_subject": e.subject,
+                    "email_sender": e.sender,
+                    "email_received_at": e.received_at.isoformat() if e.received_at else "",
+                    "task_title": md.get("title"),
+                    "task_link": md.get("selfLink"),
+                    "task_due": md.get("due"),
+                })
+            logger.info(f"Retrieved {len(items)} tasks from database")
+        return jsonify({"tasks": items, "total": len(items)})
     except Exception as e:
         logger.error(f"Error fetching all tasks: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch tasks"}), 500
@@ -544,6 +611,11 @@ def fetch_emails():
             should_create = ml_result.get("should_create", True)
             confidence = ml_result.get("confidence", 0.5)
             reasoning = ml_result.get("reasoning", "")
+
+            #create meeting if necessary
+            meeting_info = ml_result.get("meeting")
+            if meeting_info and meeting_info.get("is_meeting"):
+                create_google_calendar_event(meeting_info)
             
             # Store email with ML metadata
             email_row = get_or_create_email(s, message_id, payload)

@@ -129,7 +129,11 @@ def test_classification():
         reasoning = result.get('reasoning', '')
         if reasoning:
             print(f"   Reasoning: {reasoning}")
-        
+
+        meeting_info = result.get("meeting")
+        if meeting_info:
+            print(f"   Meeting block: {meeting_info}")
+
         print()
     
     print("=" * 80)
@@ -139,4 +143,3 @@ def test_classification():
 
 if __name__ == "__main__":
     test_classification()
-
