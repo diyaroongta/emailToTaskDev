@@ -14,8 +14,6 @@ import re
 import logging
 from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup
-from datetime import timezone, timedelta
-from dateutil import parser as date_parser
 
 
 logger = logging.getLogger(__name__)
@@ -29,10 +27,6 @@ except ImportError:
 
 
 def clean_html_to_text(html: str) -> str:
-    """
-    Convert HTML content to clean plain text.
-    Handles common email HTML formatting.
-    """
     if not html or not html.strip():
         return ""
     
@@ -116,7 +110,6 @@ def classify_and_generate_task(
     """
     if not OPENAI_AVAILABLE:
         logger.warning("OpenAI library not available, using fallback behavior")
-        # Fallback: create task with original content
         return {
             "should_create": True,
             "confidence": 0.5,
@@ -250,17 +243,6 @@ For task notes:
         result = json.loads(result_text)
         logger.debug(f"OpenAI API response: should_create={result.get('should_create')}, confidence={result.get('confidence', 0):.2f}")
         
-        # Validate meeting field
-        meeting_info = result.get("meeting")
-        if meeting_info and meeting_info.get("is_meeting"):
-            # If start_datetime is missing, attempt to extract it from the email body
-            if not meeting_info.get("start_datetime"):
-                start_dt, end_dt = extract_meeting_datetime(payload.get("body") or "")
-                if start_dt:
-                    meeting_info["start_datetime"] = start_dt
-                    meeting_info["end_datetime"] = end_dt
-
-      
         # Validate and sanitize response
         return {
             "should_create": bool(result.get("should_create", True)),
@@ -292,30 +274,6 @@ For task notes:
             "reasoning": f"API error: {str(e)}",
             "meeting": result.get("meeting") if isinstance(result, dict) else None
         }
-
-
-def batch_classify_emails(
-    payloads: list[Dict[str, Any]],
-    api_key: Optional[str] = None,
-    model: str = "gpt-4o-mini"
-) -> list[Dict[str, Any]]:
-    """
-    Classify multiple emails in batch (sequentially).
-    Can be extended to use async for better performance.
-    
-    Args:
-        payloads: List of email payloads
-        api_key: OpenAI API key
-        model: OpenAI model to use
-    
-    Returns:
-        List of classification results
-    """
-    results = []
-    for payload in payloads:
-        result = classify_and_generate_task(payload, api_key=api_key, model=model)
-        results.append(result)
-    return results
 
 
 # Convenience function for app.py

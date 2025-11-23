@@ -48,7 +48,7 @@ export default function CreatedTasksList({ results }: CreatedTasksListProps) {
                 <TableCell>
                   <Button
                     component="a"
-                    href="https://tasks.google.com/"
+                    href={item.task.webLink || "https://tasks.google.com/"}
                     target="_blank"
                     rel="noopener"
                     size="small"

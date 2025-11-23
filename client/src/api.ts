@@ -1,5 +1,3 @@
-// API service for communicating with Flask backend
-
 export type FetchEmailsParams = {
   provider?: string;
   window?: string;
@@ -22,6 +20,19 @@ export type Task = {
   task_due?: string;
 };
 
+export type CalendarEvent = {
+  google_event_id?: string;
+  summary: string;
+  location?: string;
+  start_datetime?: string;
+  end_datetime?: string;
+  html_link?: string;
+  created_at: string;
+  email_subject: string;
+  email_sender: string;
+  email_received_at: string;
+};
+
 export type FetchEmailsResponse = {
   processed: number;
   query: string;
@@ -33,20 +44,43 @@ export type FetchEmailsResponse = {
       title?: string;
       due?: string;
       status?: string;
+      selfLink?: string;
+      webLink?: string;
       [key: string]: string | undefined;
     };
   }>;
   total_found: number;
   already_processed: number;
   considered: number;
+  calendar_events?: Array<{
+    summary: string;
+    htmlLink: string;
+    start?: string;
+    location?: string;
+  }>;
 };
 
 class ApiService {
-  private baseUrl = '/api';
+  private baseUrl = import.meta.env.VITE_API_BASE_URL;
 
   async checkAuth(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/auth/status`);
+      const response = await fetch(`${this.baseUrl}/auth/status`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        console.error(`Auth check failed: ${response.status} ${response.statusText}`);
+        return false;
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Auth check failed: Expected JSON but got:', text.substring(0, 100));
+        return false;
+      }
+      
       const data = await response.json();
       return data.authenticated === true;
     } catch (error) {
@@ -56,12 +90,15 @@ class ApiService {
   }
 
   async authorize(): Promise<void> {
-    window.location.href = '/authorize';
+    window.location.href = `${this.baseUrl}/authorize`;
   }
 
   async logout(): Promise<void> {
     try {
-      await fetch(`${this.baseUrl}/logout`, { method: 'POST' });
+      await fetch(`${this.baseUrl}/logout`, { 
+        method: 'POST',
+        credentials: 'include',
+      });
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed:', error);
@@ -81,6 +118,7 @@ class ApiService {
 
     const response = await fetch(`${this.baseUrl}/fetch-emails?${queryParams}`, {
       method: 'POST',
+      credentials: 'include', // Include cookies
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -96,11 +134,26 @@ class ApiService {
   }
 
   async getAllTasks(): Promise<{ tasks: Task[]; total: number }> {
-    const response = await fetch(`${this.baseUrl}/tasks/all`);
+    const response = await fetch(`${this.baseUrl}/tasks/all`, {
+      credentials: 'include',
+    });
     
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(error.error || 'Failed to fetch tasks');
+    }
+
+    return await response.json();
+  }
+
+  async getAllCalendarEvents(): Promise<{ events: CalendarEvent[]; total: number }> {
+    const response = await fetch(`${this.baseUrl}/calendar-events/all`, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.error || 'Failed to fetch calendar events');
     }
 
     return await response.json();

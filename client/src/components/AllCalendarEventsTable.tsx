@@ -1,21 +1,21 @@
-import { Box, Typography, Button, CircularProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip } from '@mui/material';
-import { List as ListIcon, Refresh as RefreshIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
+import { Box, Typography, Button, CircularProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Event as EventIcon, Refresh as RefreshIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
 import { notionColors } from '../theme';
 import { formatDate } from '../utils/dateUtils';
-import type { Task } from '../api';
+import type { CalendarEvent } from '../api';
 
-interface AllTasksTableProps {
-  tasks: Task[];
+interface AllCalendarEventsTableProps {
+  events: CalendarEvent[];
   loading: boolean;
   onRefresh: () => void;
 }
 
-export default function AllTasksTable({ tasks, loading, onRefresh }: AllTasksTableProps) {
+export default function AllCalendarEventsTable({ events, loading, onRefresh }: AllCalendarEventsTableProps) {
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h6" sx={{ fontSize: '16px' }}>
-          All Processed Tasks ({tasks.length})
+          All Calendar Events ({events.length})
         </Typography>
         <Button
           variant="text"
@@ -32,36 +32,65 @@ export default function AllTasksTable({ tasks, loading, onRefresh }: AllTasksTab
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
           <CircularProgress size={24} />
         </Box>
-      ) : tasks.length > 0 ? (
+      ) : events.length > 0 ? (
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Task Title</TableCell>
-                <TableCell>Sender</TableCell>
-                <TableCell>Provider</TableCell>
-                <TableCell>Received</TableCell>
-                <TableCell>Processed</TableCell>
-                <TableCell>Due</TableCell>
+                <TableCell>Event</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Start Time</TableCell>
+                <TableCell>End Time</TableCell>
+                <TableCell>From Email</TableCell>
+                <TableCell>Created</TableCell>
                 <TableCell>Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {tasks.map((task, idx) => (
+              {events.map((event, idx) => (
                 <TableRow key={idx}>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EventIcon sx={{ fontSize: 18, color: notionColors.text.secondary }} />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          maxWidth: 250,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          fontSize: '14px',
+                        }}
+                        title={event.summary}
+                      >
+                        {event.summary}
+                      </Typography>
+                    </Box>
+                  </TableCell>
                   <TableCell>
                     <Typography
                       variant="body2"
                       sx={{
-                        maxWidth: 300,
+                        maxWidth: 150,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                         fontSize: '14px',
+                        color: notionColors.text.secondary,
                       }}
-                      title={task.task_title || task.email_subject || 'No title'}
+                      title={event.location || '—'}
                     >
-                      {task.task_title || task.email_subject || 'No title'}
+                      {event.location || '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontSize: '14px' }}>
+                      {event.start_datetime ? formatDate(event.start_datetime) : '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontSize: '14px' }}>
+                      {event.end_datetime ? formatDate(event.end_datetime) : '—'}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -74,36 +103,20 @@ export default function AllTasksTable({ tasks, loading, onRefresh }: AllTasksTab
                         whiteSpace: 'nowrap',
                         fontSize: '14px',
                       }}
-                      title={task.email_sender || 'Unknown'}
+                      title={event.email_sender || 'Unknown'}
                     >
-                      {task.email_sender || 'Unknown'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={task.provider} 
-                      size="small"
-                      sx={{ 
-                        backgroundColor: notionColors.chip.default,
-                        color: notionColors.chip.text,
-                      }} 
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontSize: '14px' }}>
-                      {formatDate(task.email_received_at)}
+                      {event.email_sender || 'Unknown'}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontSize: '14px' }}>
-                      {formatDate(task.created_at)}
+                      {formatDate(event.created_at)}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ fontSize: '14px' }}>{task.task_due ? formatDate(task.task_due) : '—'}</TableCell>
                   <TableCell>
                     <Button
                       component="a"
-                      href={task.task_link && !task.task_link.includes('googleapis.com') ? task.task_link : "https://tasks.google.com/"}
+                      href={event.html_link || "https://calendar.google.com/"}
                       target="_blank"
                       rel="noopener"
                       size="small"
@@ -121,12 +134,12 @@ export default function AllTasksTable({ tasks, loading, onRefresh }: AllTasksTab
         </TableContainer>
       ) : (
         <Box sx={{ border: `1px solid ${notionColors.border.default}`, borderRadius: '3px', p: 6, textAlign: 'center' }}>
-          <ListIcon sx={{ fontSize: 48, color: notionColors.text.disabled, mb: 2 }} />
+          <EventIcon sx={{ fontSize: 48, color: notionColors.text.disabled, mb: 2 }} />
           <Typography variant="h6" sx={{ mb: 1, fontSize: '16px', fontWeight: 500 }}>
-            No Tasks Found
+            No Calendar Events Found
           </Typography>
           <Typography variant="body2" sx={{ fontSize: '14px' }}>
-            No tasks have been processed yet. Start by processing emails from your Gmail account.
+            No calendar events have been created yet. Process emails with meeting information to create calendar events.
           </Typography>
         </Box>
       )}

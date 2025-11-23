@@ -12,17 +12,45 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:5000',
+      '/auth': {
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
+        cookieDomainRewrite: '',
+      },
+      '/tasks': {
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
+        changeOrigin: true,
+        cookieDomainRewrite: '',
+      },
+      '/calendar-events': {
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
+        changeOrigin: true,
+        cookieDomainRewrite: '',
+      },
+      '/fetch-emails': {
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
+        changeOrigin: true,
+        cookieDomainRewrite: '',
+      },
+      '/user': {
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
+        changeOrigin: true,
+        cookieDomainRewrite: '',
+      },
+      '/logout': {
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
+        changeOrigin: true,
+        cookieDomainRewrite: '',
       },
       '/authorize': {
-        target: 'http://127.0.0.1:5000',
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
+        cookieDomainRewrite: '',
       },
       '/oauth2callback': {
-        target: 'http://127.0.0.1:5000',
+        target: process.env.VITE_BASE_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
+        cookieDomainRewrite: '',
       },
     },
   },

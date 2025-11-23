@@ -14,7 +14,6 @@ function App() {
     setAuthenticated(isAuth);
   }, []);
 
-  // Initialize auth state on mount
   useEffect(() => {
     let cancelled = false;
     (async () => {

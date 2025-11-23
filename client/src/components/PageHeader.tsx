@@ -1,14 +1,8 @@
-import { Box, Typography, Button } from '@mui/material';
-import { Settings as SettingsIcon } from '@mui/icons-material';
+import { Box, Typography } from '@mui/material';
 
-interface PageHeaderProps {
-  onSettingsClick: () => void;
-}
-
-export default function PageHeader({ onSettingsClick }: PageHeaderProps) {
+export default function PageHeader() {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-      <Box>
+    <Box sx={{ mb: 3 }}>
         <Typography 
           variant="h1" 
           component="h1" 
@@ -28,18 +22,6 @@ export default function PageHeader({ onSettingsClick }: PageHeaderProps) {
         >
           Process emails from Gmail and convert them to tasks using AI classification
         </Typography>
-      </Box>
-      <Button
-        variant="text"
-        startIcon={<SettingsIcon />}
-        onClick={onSettingsClick}
-        sx={{
-          px: 1.5,
-          py: 0.75,
-        }}
-      >
-        Settings
-      </Button>
     </Box>
   );
 }

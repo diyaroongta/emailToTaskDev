@@ -34,13 +34,19 @@ export default function ProcessEmailsForm({
 }: ProcessEmailsFormProps) {
   return (
     <Box component="form" onSubmit={onSubmit}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3, alignItems: 'center' }}>
         <TextField
           select
           label="Task Provider"
           value={formData.provider}
           onChange={(e) => onFormDataChange({ ...formData, provider: e.target.value })}
-          sx={{ minWidth: 180 }}
+          sx={{ 
+            minWidth: 180,
+            '& .MuiInputBase-input': {
+              height: '56px',
+              boxSizing: 'border-box'
+            }
+          }}
         >
           <MenuItem value="google_tasks">Google Tasks</MenuItem>
         </TextField>
@@ -51,8 +57,14 @@ export default function ProcessEmailsForm({
           value={formData.max || ''}
           onChange={(e) => onFormDataChange({ ...formData, max: e.target.value ? Number(e.target.value) : undefined })}
           placeholder="All"
-          inputProps={{ min: 1 }}
-          sx={{ minWidth: 150 }}
+          slotProps={{ htmlInput: { min: 1 } }}
+          sx={{ 
+            minWidth: 150,
+            '& .MuiInputBase-input': {
+              height: '56px',
+              boxSizing: 'border-box'
+            }
+          }}
         />
 
         <TextField
@@ -60,7 +72,13 @@ export default function ProcessEmailsForm({
           label="Time Window"
           value={formData.window}
           onChange={(e) => onFormDataChange({ ...formData, window: e.target.value })}
-          sx={{ minWidth: 180 }}
+          sx={{ 
+            minWidth: 180,
+            '& .MuiInputBase-input': {
+              height: '56px',
+              boxSizing: 'border-box'
+            }
+          }}
         >
           <MenuItem value="">All emails</MenuItem>
           <MenuItem value="1d">Last 24 hours</MenuItem>
@@ -73,7 +91,13 @@ export default function ProcessEmailsForm({
           label="Dry Run"
           value={formData.dry_run ? 'true' : 'false'}
           onChange={(e) => onFormDataChange({ ...formData, dry_run: e.target.value === 'true' })}
-          sx={{ minWidth: 120 }}
+          sx={{ 
+            minWidth: 120,
+            '& .MuiInputBase-input': {
+              height: '56px',
+              boxSizing: 'border-box'
+            }
+          }}
         >
           <MenuItem value="false">No</MenuItem>
           <MenuItem value="true">Yes</MenuItem>
@@ -97,6 +121,12 @@ export default function ProcessEmailsForm({
               onChange={(e) => onFormDataChange({ ...formData, since_hours: e.target.value ? Number(e.target.value) : undefined })}
               placeholder="e.g., 24"
               helperText="Precise time filter (overrides time window)"
+              sx={{
+                '& .MuiInputBase-input': {
+                  height: '56px',
+                  boxSizing: 'border-box'
+                }
+              }}
             />
             <TextField
               type="text"
@@ -105,6 +135,12 @@ export default function ProcessEmailsForm({
               onChange={(e) => onFormDataChange({ ...formData, since: e.target.value })}
               placeholder="e.g., 2025-10-27T12:00:00Z"
               helperText="Overrides hours if both provided"
+              sx={{
+                '& .MuiInputBase-input': {
+                  height: '56px',
+                  boxSizing: 'border-box'
+                }
+              }}
             />
             <TextField
               type="text"
@@ -113,6 +149,12 @@ export default function ProcessEmailsForm({
               onChange={(e) => onFormDataChange({ ...formData, q: e.target.value })}
               placeholder="e.g., from:boss@example.com has:attachment"
               helperText="Advanced Gmail search query (overrides other filters)"
+              sx={{
+                '& .MuiInputBase-input': {
+                  height: '56px',
+                  boxSizing: 'border-box'
+                }
+              }}
             />
           </Box>
         </AccordionDetails>

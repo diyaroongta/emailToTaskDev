@@ -55,20 +55,13 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
         </Box>
         <Box sx={{ flexGrow: 1 }} />
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {authenticated ? (
+          {authenticated && (
               <Button
                 onClick={handleLogout}
               variant="text"
               >
                 Logout
               </Button>
-          ) : (
-            <Button
-              onClick={() => api.authorize()}
-              variant="contained"
-            >
-              Connect
-            </Button>
           )}
         </Box>
       </Toolbar>
