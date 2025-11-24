@@ -6,24 +6,24 @@ import {
 import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import type { FetchEmailsParams } from '../api';
-import MaxEmails from './filter-inputs/MaxEmails';
-import TimeWindow from './filter-inputs/TimeWindow';
-import CustomQuery from './filter-inputs/CustomQuery';
+import type { FetchEmailsParams } from '../../api';
+import MaxEmails from '../filter-inputs/MaxEmails';
+import TimeWindow from '../filter-inputs/TimeWindow';
+import CustomQuery from '../filter-inputs/CustomQuery';
 
-interface ProcessEmailsFormProps {
+interface ProcessEmailsProps {
   formData: FetchEmailsParams;
   onFormDataChange: (data: FetchEmailsParams) => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
   loading: boolean;
 }
 
-export default function ProcessEmailsForm({
+export default function ProcessEmails({
   formData,
   onFormDataChange,
   onSubmit,
   loading,
-}: ProcessEmailsFormProps) {
+}: ProcessEmailsProps) {
   return (
     <Box component="form" onSubmit={onSubmit}>
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%', flexWrap: 'nowrap', mb: 3 }}>

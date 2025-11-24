@@ -1,6 +1,14 @@
 import { Box, Typography } from '@mui/material';
 
-export default function PageHeader() {
+interface PageHeaderProps {
+  title?: string;
+  description?: string;
+}
+
+export default function PageHeader({ 
+  title = 'Email to Task Converter',
+  description = 'Process emails from Gmail and convert them to tasks using AI classification'
+}: PageHeaderProps) {
   return (
     <Box sx={{ mb: 3 }}>
         <Typography 
@@ -12,7 +20,7 @@ export default function PageHeader() {
             letterSpacing: '-0.01em',
           }}
         >
-          Email to Task Converter
+          {title}
         </Typography>
         <Typography 
           variant="body2" 
@@ -20,7 +28,7 @@ export default function PageHeader() {
             fontSize: '14px',
           }}
         >
-          Process emails from Gmail and convert them to tasks using AI classification
+          {description}
         </Typography>
     </Box>
   );

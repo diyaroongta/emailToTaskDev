@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import { notionColors } from '../theme';
 import { useSettings } from '../hooks';
+import PageHeader from '../components/PageHeader';
 import MaxEmails from '../components/filter-inputs/MaxEmails';
 import TimeWindow from '../components/filter-inputs/TimeWindow';
 
@@ -71,27 +72,11 @@ export default function Settings({ authenticated }: SettingsProps) {
 
   return (
     <>
-      <Box sx={{ maxWidth: 600, mx: 'auto', px: 3 }}>
-        <Typography 
-          variant="h4" 
-          component="h1" 
-          sx={{ 
-            fontWeight: 600,
-            mb: 1,
-            mt: 2,
-          }}
-        >
-          Settings
-        </Typography>
-        <Typography 
-          variant="body2" 
-          sx={{ 
-            color: notionColors.text.secondary,
-            mb: 4,
-          }}
-        >
-          Configure default preferences for processing emails. These settings will be used as defaults when processing emails, but can be overridden in the Process Emails tab.
-        </Typography>
+      <Box sx={{ maxWidth: 1400, mx: 'auto', px: 3, pt: 4 }}>
+        <PageHeader 
+          title="Settings"
+          description="Configure default preferences for processing emails."
+        />
 
         <Paper 
           elevation={0}
@@ -122,7 +107,7 @@ export default function Settings({ authenticated }: SettingsProps) {
               showCustomOption={false}
             />
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2 }}>
               <Button
                 onClick={handleSave}
                 variant="contained"

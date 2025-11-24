@@ -44,6 +44,7 @@ def api_all_results():
                     "task_title": md.get("title"),
                     "task_link": md.get("webLink") or md.get("selfLink"),
                     "task_due": md.get("due"),
+                    "status": "created",
                 })
         return jsonify({"tasks": items, "total": len(items)})
     except Exception as e:

@@ -5,6 +5,7 @@ export type FetchEmailsParams = {
   since_hours?: number;
   since?: string;
   q?: string;
+  timezone?: string;
   dry_run?: boolean;
 };
 
@@ -19,6 +20,7 @@ export type Task = {
   task_title?: string;
   task_link?: string;
   task_due?: string;
+  status: 'created' | 'skipped';
 };
 
 export type CalendarEvent = {
@@ -33,6 +35,7 @@ export type CalendarEvent = {
   email_subject: string;
   email_sender: string;
   email_received_at: string;
+  status: 'created' | 'skipped';
 };
 
 export type FetchEmailsResponse = {
@@ -117,6 +120,7 @@ class ApiService {
     if (params.since) queryParams.append('since', params.since);
     if (params.q) queryParams.append('q', params.q);
     if (params.dry_run !== undefined) queryParams.append('dry_run', params.dry_run.toString());
+    if (params.timezone) queryParams.append('timezone', params.timezone);
 
     const response = await fetch(`${this.baseUrl}/fetch-emails?${queryParams}`, {
       method: 'POST',

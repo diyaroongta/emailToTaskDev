@@ -42,6 +42,7 @@ def api_all_calendar_events():
                     "email_subject": e.subject,
                     "email_sender": e.sender,
                     "email_received_at": e.received_at.isoformat() if e.received_at else "",
+                    "status": "created",
                 })
         return jsonify({"events": items, "total": len(items)})
     except Exception as e:

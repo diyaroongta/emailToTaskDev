@@ -6,19 +6,21 @@ import {
   Alert,
   Tabs,
   Tab,
+  Typography,
+  Chip,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
   List as ListIcon,
   Event as EventIcon,
 } from '@mui/icons-material';
-import type { FetchEmailsParams } from '../api';
+import type { FetchEmailsParams, Task, CalendarEvent } from '../api';
 import { notionColors } from '../theme';
 import { useTasks, useCalendarEvents, useFetchEmails, useSettings } from '../hooks';
 import PageHeader from '../components/PageHeader';
-import ProcessEmailsForm from '../components/ProcessEmailsForm';
-import TasksTable from '../components/TasksTable';
-import EventsTable from '../components/EventsTable';
+import ProcessEmails from '../components/tabs/ProcessEmails';
+import DataTable, { type Column } from '../components/tabs/DataTable';
+import { formatDateOnly, formatTimeOnly } from '../utils/dateUtils';
 
 interface ConverterProps {
   authenticated: boolean;
@@ -53,8 +55,150 @@ export default function Converter({ authenticated }: ConverterProps) {
   
   const { tasks: allTasks, loading: loadingTasks, loadTasks } = useTasks();
   const { events: allCalendarEvents, loading: loadingCalendarEvents, loadEvents } = useCalendarEvents();
-  const { result: results, loading, fetchEmails } = useFetchEmails();
+  const { loading, fetchEmails } = useFetchEmails();
   const { settings } = useSettings(authenticated);
+
+  // Task table columns
+  const taskColumns: Column<Task>[] = useMemo(() => [
+    {
+      header: 'Title',
+      render: (task) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px' }}>
+          {task.task_title || task.email_subject || '(no title)'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'Sender',
+      render: (task) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px', color: notionColors.text.secondary }}>
+          {task.email_sender || 'Unknown'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'Provider',
+      render: (task) => (
+        <Chip 
+          label={task.provider} 
+          size="small"
+          sx={{ 
+            backgroundColor: notionColors.chip.default,
+            color: notionColors.chip.text,
+            maxWidth: '100%',
+            '& .MuiChip-label': {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          }} 
+        />
+      ),
+    },
+    {
+      header: 'Status',
+      render: (task) => (
+        <Chip 
+          label={task.status === 'created' ? 'Created' : 'Skipped'} 
+          size="small"
+          sx={{ 
+            backgroundColor: task.status === 'created' ? notionColors.chip.success : notionColors.error.background,
+            color: task.status === 'created' ? notionColors.chip.successText : notionColors.error.text,
+            maxWidth: '100%',
+            fontWeight: 500,
+            '& .MuiChip-label': {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          }} 
+        />
+      ),
+    },
+    {
+      header: 'Due Date',
+      render: (task) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px', color: notionColors.text.secondary }}>
+          {task.task_due || '—'}
+        </Typography>
+      ),
+    },
+  ], []);
+
+  // Event table columns
+  const eventColumns: Column<CalendarEvent>[] = useMemo(() => [
+    {
+      header: 'Event',
+      render: (event) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
+          <EventIcon sx={{ fontSize: 18, color: notionColors.text.secondary, flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px' }}>
+            {event.summary || 'Meeting'}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      header: 'Location',
+      render: (event) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px', color: notionColors.text.secondary }}>
+          {event.location || '—'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'Date',
+      render: (event) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px' }}>
+          {event.start_datetime ? formatDateOnly(event.start_datetime) : '—'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'Start Time',
+      render: (event) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px' }}>
+          {event.start_datetime ? formatTimeOnly(event.start_datetime) : '—'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'End Time',
+      render: (event) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px' }}>
+          {event.end_datetime ? formatTimeOnly(event.end_datetime) : '—'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'From Email',
+      render: (event) => (
+        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px', color: notionColors.text.secondary }}>
+          {event.email_sender || 'Unknown'}
+        </Typography>
+      ),
+    },
+    {
+      header: 'Status',
+      render: (event) => (
+        <Chip 
+          label={event.status === 'created' ? 'Created' : 'Skipped'} 
+          size="small"
+          sx={{ 
+            backgroundColor: event.status === 'created' ? notionColors.chip.success : notionColors.error.background,
+            color: event.status === 'created' ? notionColors.chip.successText : notionColors.error.text,
+            maxWidth: '100%',
+            fontWeight: 500,
+            '& .MuiChip-label': {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          }} 
+        />
+      ),
+    },
+  ], []);
   
   // Compute base formData from settings
   const baseFormData = useMemo<FetchEmailsParams>(() => ({
@@ -96,11 +240,13 @@ export default function Converter({ authenticated }: ConverterProps) {
     e.preventDefault();
 
     try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const params: FetchEmailsParams = {
         ...formData,
         provider: 'google_tasks', // Always use Google Tasks
         max: formData.max ? Number(formData.max) : undefined,
         since_hours: formData.since_hours ? Number(formData.since_hours) : undefined,
+        timezone,
       };
 
       const result = await fetchEmails(params);
@@ -122,6 +268,8 @@ export default function Converter({ authenticated }: ConverterProps) {
         setSnackbarMessage(message);
         setSnackbarSeverity('success');
         setShowSnackbar(true);
+        loadTasks().catch(() => {});
+        loadEvents().catch(() => {});
       }
     } catch (err) {
       setSnackbarMessage(err instanceof Error ? err.message : 'An error occurred');
@@ -160,26 +308,38 @@ export default function Converter({ authenticated }: ConverterProps) {
             </Box>
 
           <TabPanel value={tabValue} index={0}>
-            <ProcessEmailsForm
+            <ProcessEmails
               formData={formData}
               onFormDataChange={setFormData}
               onSubmit={handleSubmit}
               loading={loading}
             />
-            {results && (
-              <>
-                <TasksTable results={results} />
-                <EventsTable results={results} />
-              </>
-            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>
-            <TasksTable allTasks={allTasks} loading={loadingTasks} />
+            <DataTable
+              data={allTasks}
+              loading={loadingTasks}
+              columns={taskColumns}
+              emptyIcon={<ListIcon sx={{ fontSize: 48, color: notionColors.text.disabled, mb: 2 }} />}
+              emptyTitle="No Tasks Found"
+              emptyMessage="No tasks have been processed yet. Start by processing emails from your Gmail account."
+              loadingMessage="Loading tasks..."
+              getItemId={(task) => task.id}
+            />
           </TabPanel>
 
           <TabPanel value={tabValue} index={2}>
-            <EventsTable allEvents={allCalendarEvents} loading={loadingCalendarEvents} />
+            <DataTable
+              data={allCalendarEvents}
+              loading={loadingCalendarEvents}
+              columns={eventColumns}
+              emptyIcon={<EventIcon sx={{ fontSize: 48, color: notionColors.text.disabled, mb: 2 }} />}
+              emptyTitle="No Calendar Events Found"
+              emptyMessage="No calendar events have been created yet. Process emails with meeting information to create calendar events."
+              loadingMessage="Loading calendar events..."
+              getItemId={(event) => event.id}
+            />
           </TabPanel>
               </Box>
             </Box>
