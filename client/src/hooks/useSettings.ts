@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { api, type Settings } from '../apis/api';
 
 const DEFAULT_SETTINGS: Settings = {
-  max: undefined,
-  window: '',
+  max: 10,
+  window: '1d',
 };
 
 export function useSettings(authenticated: boolean) {

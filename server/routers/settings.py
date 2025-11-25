@@ -26,8 +26,8 @@ def get_settings():
             if not user_settings:
                 # Return default settings if none exist
                 return jsonify({
-                    "max": None,
-                    "window": "",
+                    "max": 10,
+                    "window": "1d",
                 })
             
             return jsonify({
