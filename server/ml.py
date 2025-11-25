@@ -30,29 +30,22 @@ def clean_html_to_text(html: str) -> str:
     
     soup = BeautifulSoup(html, "lxml")
     
-    # Remove script and style elements
     for element in soup(["script", "style", "meta", "link"]):
         element.decompose()
     
-    # Handle line breaks
     for br in soup.find_all("br"):
         br.replace_with("\n")
     
-    # Handle paragraphs
     for p in soup.find_all("p"):
         p.insert_after("\n")
     
-    # Handle divs
     for div in soup.find_all("div"):
         div.insert_after("\n")
     
-    # Get text and clean up extra whitespace
     text = soup.get_text("\n")
     
-    # Clean up multiple newlines
     text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
     
-    # Clean up spaces
     lines = [line.strip() for line in text.split('\n')]
     text = '\n'.join(line for line in lines if line)
     
@@ -69,11 +62,9 @@ def prepare_email_content(payload: Dict[str, Any]) -> Dict[str, str]:
     html = payload.get("html", "")
     snippet = payload.get("snippet", "")
     
-    # If body is empty but html exists, convert html to text
     if not body and html:
         body = clean_html_to_text(html)
     
-    # Limit body length for API efficiency (keep first ~2000 chars)
     if len(body) > 2000:
         body = body[:2000] + "..."
     
@@ -127,7 +118,6 @@ def classify_and_generate_task(
             f"Classification skipped - Subject: '{subject}' | "
             f"Reason: No OpenAI API key configured, using default behavior"
         )
-        # Fallback: create task with original content
         return {
             "should_create": True,
             "confidence": 0.5,
@@ -140,10 +130,8 @@ def classify_and_generate_task(
     sender = payload.get("sender", "Unknown")
     subject = email_content.get("subject", "(No subject)")
     
-    # Log email being processed
     logger.info(f"Processing email for classification - Subject: '{subject}', Sender: '{sender}'")
     
-    # Build prompt for classification and generation
     prompt = f"""
 You are an intelligent email assistant that helps users manage their tasks and meetings by analyzing emails.
 
@@ -240,22 +228,20 @@ For task notes:
                     "content": prompt
                 }
             ],
-            temperature=0.3,  # Lower temperature for more consistent classification
+            temperature=0.3,
             max_tokens=500,
-            response_format={"type": "json_object"}  # Ensures JSON response
+            response_format={"type": "json_object"}
         )
         
         result_text = response.choices[0].message.content
         result = json.loads(result_text)
         
-        # Extract classification results
         should_create = bool(result.get("should_create", True))
         confidence = float(result.get("confidence", 0.5))
         reasoning = str(result.get("reasoning", ""))[:500]
         title = str(result.get("title", email_content["subject"]))[:200]
         meeting_info = result.get("meeting")
         
-        # Log classification results
         classification_status = "SUCCESS" if should_create else "SKIPPED"
         logger.info(
             f"Email classification completed - Subject: '{subject}' | "
@@ -271,7 +257,6 @@ For task notes:
                 f"Start: {meeting_info.get('start_datetime', 'N/A')}"
             )
         
-        # Validate and sanitize response
         return {
             "should_create": should_create,
             "confidence": confidence,
@@ -282,12 +267,10 @@ For task notes:
         }
         
     except json.JSONDecodeError as e:
-        # Log classification failure
         logger.error(
             f"Classification FAILED (JSON parsing error) - Subject: '{subject}' | "
             f"Error: {str(e)} | Using fallback behavior"
         )
-        # Fallback to creating task
         return {
             "should_create": True,
             "confidence": 0.5,
@@ -296,12 +279,10 @@ For task notes:
             "reasoning": "JSON parsing failed, using fallback"
         }
     except Exception as e:
-        # Log classification failure
         logger.error(
             f"Classification FAILED (API error) - Subject: '{subject}' | "
             f"Error: {str(e)} | Using fallback behavior"
         )
-        # Fallback to creating task
         return {
             "should_create": True,
             "confidence": 0.5,
@@ -312,7 +293,6 @@ For task notes:
         }
 
 
-# Convenience function for app.py
 def ml_decide(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     Main entry point for email classification.

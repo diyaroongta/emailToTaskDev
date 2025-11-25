@@ -64,7 +64,9 @@ If you prefer manual setup or the script doesn't work:
 ### 1. Install Dependencies
 
 ```bash
+cd server
 pip3 install -r requirements.txt
+cd ..
 ```
 
 ### 2. Google OAuth Setup
@@ -108,7 +110,6 @@ OPENAI_API_KEY=sk-your-openai-api-key-here
 OPENAI_MODEL=gpt-4o-mini
 
 # Application Configuration
-FETCH_LIMIT=10
 PORT=5001
 FRONTEND_URL=http://localhost:5173
 ```
@@ -121,20 +122,28 @@ FRONTEND_URL=http://localhost:5173
 2. Click "Connect with Google"
 3. Authorize the application to access your Gmail
 
-### 2. Process Emails
+### 2. Configure Settings (Optional)
+
+1. Go to the "Settings" tab
+2. Configure default preferences:
+   - **Default Max Emails**: Set default maximum emails to process (default: 10)
+   - **Default Time Window**: Set default time window for email search (default: Last 24 hours)
+3. Click "Save Settings" to save your preferences
+
+### 3. Process Emails
 
 1. Go to the "Process Emails" tab
 2. Configure your search parameters:
    - **Task Provider**: Choose Google Tasks (default)
-   - **Max Emails**: Set how many emails to process at once (optional)
-   - **Time Window**: Filter emails by date range (Last 24 hours, 7 days, 30 days, or all)
+   - **Max Emails**: Set how many emails to process at once (defaults to your saved setting or 10)
+   - **Time Window**: Filter emails by date range (defaults to Last 24 hours, or choose 7 days, 30 days, or all)
    - **Custom Query**: Use Gmail search syntax for advanced filtering (optional)
    - **Since Hours**: Filter emails from the last N hours (e.g., "24h", "1.5h", "90m")
    - **Since Date**: Filter emails from a specific ISO date (e.g., "2025-01-15T00:00:00Z")
    - **Dry Run**: Test without actually creating tasks
 3. Click "Process Emails" to start processing
 
-### 3. View Results
+### 4. View Results
 
 The application will:
 - Show you the Gmail query used
@@ -143,7 +152,7 @@ The application will:
 - List all newly created calendar events with links to Google Calendar
 - Show statistics (total found, already processed, considered)
 
-### 4. View All Tasks and Events
+### 5. View All Tasks and Events
 
 - **Tasks Tab**: View all tasks created from emails, sorted by creation date
 - **Calendar Tab**: View all calendar events created from emails, sorted by creation date
@@ -160,12 +169,59 @@ The application will:
 | `GOOGLE_REDIRECT_URI` | OAuth callback URL | `http://localhost:5001/oauth2callback` |
 | `DEFAULT_TASK_PROVIDER` | Default task provider | `google_tasks` |
 | `TASKS_LIST_TITLE` | Title for the Google Tasks list | `Email Tasks` |
-| `FETCH_LIMIT` | Maximum emails to process | `10` |
 | `PORT` | Application port | `5001` |
 | `FRONTEND_URL` | Frontend URL for OAuth redirects | `http://localhost:5173` |
 | `OPENAI_API_KEY` | OpenAI API key for ML features | Required |
 | `OPENAI_MODEL` | OpenAI model to use | `gpt-4o-mini` |
 | `DB_DIR` | Directory for SQLite database | `/tmp` (Cloud Run) or local |
+| `RECREATE_DB` | Recreate database on startup | `false` |
+
+**Note:** `FETCH_LIMIT` is defined in the code but not currently used. The maximum number of emails to process is controlled by user settings (default: 10) or the `max` parameter in API requests.
+
+### Default Settings
+
+When a user first accesses the application, default settings are applied:
+- **Default Max Emails**: 10
+- **Default Time Window**: Last 24 hours (1d)
+
+These can be customized in the Settings page.
+
+## 🚀 Production Deployment
+
+### Google Cloud Run Deployment
+
+The application is configured for deployment to Google Cloud Run:
+
+1. **Prerequisites**:
+   - Google Cloud Project with billing enabled
+   - `gcloud` CLI installed and authenticated
+   - Firebase CLI installed (for frontend deployment)
+   - Secret Manager API enabled
+
+2. **Set up Secrets**:
+   ```bash
+   # Create secrets from your .env file
+   # Note: You'll need to create a script to extract FLASK_SECRET and OPENAI_API_KEY
+   # and store them in Google Cloud Secret Manager
+   ```
+
+3. **Configure OAuth Redirect URI**:
+   - Add your production redirect URI to Google Cloud Console OAuth credentials:
+     `https://your-cloud-run-url/oauth2callback`
+
+4. **Deploy**:
+   ```bash
+   # Deploy frontend and backend
+   npm run deploy
+   
+   # Or deploy separately
+   npm run deploy:client 
+   npm run deploy:server
+   ```
+
+5. **Environment Variables**:
+   - Secrets (`FLASK_SECRET`, `OPENAI_API_KEY`) are managed via Google Cloud Secret Manager
+   - Other environment variables are set in `cloudbuild.yaml`
 
 ## 🤖 AI Classification Features
 
