@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api, type FetchEmailsParams, type FetchEmailsResponse } from '../api';
+import { api, type FetchEmailsParams, type FetchEmailsResponse } from '../apis/api';
 
 export function useFetchEmails() {
   const [result, setResult] = useState<FetchEmailsResponse | null>(null);

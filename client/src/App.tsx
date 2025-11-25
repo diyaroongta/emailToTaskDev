@@ -6,7 +6,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Converter from './pages/Converter';
 import Settings from './pages/Settings';
-import { theme, notionColors } from './theme';
+import { theme } from './theme';
 
 function App() {
   const { authenticated, loading, checkAuth } = useAuth();
@@ -30,7 +30,13 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
-        <Box sx={{ minHeight: '100vh', backgroundColor: notionColors.background.default, pb: 6 }}>
+        <Box 
+          sx={{ 
+            minHeight: '100vh', 
+            backgroundColor: 'white',
+            pb: 6,
+          }}
+        >
           <Navbar authenticated={authenticated} onAuthChange={checkAuth} />
           <Box sx={{ maxWidth: '900px', width: '100%', mx: 'auto' }}>
             <Routes>

@@ -15,7 +15,7 @@ export default function CustomQuery({
   value,
   onChange,
   label = 'Custom Gmail Query',
-  placeholder = 'e.g., from:boss@example.com has:attachment',
+  placeholder = 'e.g., has:attachment',
   helperText = 'Overrides other filters',
   disabled = false,
   fullWidth = false,
@@ -34,8 +34,8 @@ export default function CustomQuery({
       sx={{
         flex: fullWidth ? undefined : 1,
         '& .MuiInputBase-input': {
-          height: '56px',
-          boxSizing: 'border-box'
+          height: '60px',
+          boxSizing: 'border-box',
         },
         ...sx,
       }}

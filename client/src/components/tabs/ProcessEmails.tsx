@@ -2,11 +2,13 @@ import {
   Box,
   Button,
   CircularProgress,
+  Paper,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import type { FetchEmailsParams } from '../../api';
+import type { FetchEmailsParams } from '../../apis/api';
+import { notionColors } from '../../theme';
 import MaxEmails from '../filter-inputs/MaxEmails';
 import TimeWindow from '../filter-inputs/TimeWindow';
 import CustomQuery from '../filter-inputs/CustomQuery';
@@ -25,6 +27,16 @@ export default function ProcessEmails({
   loading,
 }: ProcessEmailsProps) {
   return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        border: `1.5px solid ${notionColors.border.default}`,
+        borderRadius: 3,
+        backgroundColor: '#FFFFFF',
+        boxShadow: notionColors.shadow.card,
+      }}
+    >
     <Box component="form" onSubmit={onSubmit}>
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%', flexWrap: 'nowrap', mb: 3 }}>
         <MaxEmails
@@ -52,14 +64,17 @@ export default function ProcessEmails({
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon sx={{ fontSize: 18 }} />}
           disabled={loading}
           sx={{
-            px: 2.5,
-            py: 1,
+              px: 3,
+              py: 1.25,
+              borderRadius: '8px',
+              fontSize: '14px',
           }}
         >
           {loading ? 'Processing...' : 'Process Emails'}
         </Button>
       </Box>
     </Box>
+    </Paper>
   );
 }
 

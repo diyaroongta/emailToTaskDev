@@ -82,8 +82,10 @@ export default function Settings({ authenticated }: SettingsProps) {
           elevation={0}
           sx={{ 
             p: 3, 
-            border: `1px solid ${notionColors.border.default}`,
-            borderRadius: 2,
+            border: `1.5px solid ${notionColors.border.default}`,
+            borderRadius: 3,
+            backgroundColor: '#FFFFFF',
+            boxShadow: notionColors.shadow.card,
           }}
         >
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

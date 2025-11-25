@@ -1,41 +1,55 @@
 import { createTheme } from '@mui/material/styles';
 
-// Notion-style color palette
+// Modern, refined color palette
 export const notionColors = {
+  // Primary colors - blue palette from SVG image
+  primary: {
+    main: '#30A8FF', // Bright blue from SVG
+    light: '#88C0FF', // Medium-light blue from SVG
+    dark: '#2B7BC5', // Medium-dark blue from SVG
+    contrast: '#FFFFFF',
+  },
+  // Text colors
   text: {
-    primary: 'rgba(55, 53, 47, 1)',
-    secondary: 'rgba(55, 53, 47, 0.65)',
-    tertiary: 'rgba(55, 53, 47, 0.5)',
-    disabled: 'rgba(55, 53, 47, 0.3)',
-    icon: 'rgba(55, 53, 47, 0.8)',
+    primary: '#1F2937',
+    secondary: '#6B7280',
+    tertiary: '#9CA3AF',
+    disabled: '#D1D5DB',
   },
+  // Background colors
   background: {
-    default: '#ffffff',
-    hover: 'rgba(55, 53, 47, 0.08)',
-    hoverLight: 'rgba(55, 53, 47, 0.03)',
-    button: 'rgba(55, 53, 47, 1)',
-    buttonHover: 'rgba(55, 53, 47, 0.85)',
-    buttonDisabled: 'rgba(55, 53, 47, 0.3)',
+    default: '#F5F7FA',
+    paper: '#F0F2F5',
+    hover: 'rgba(48, 168, 255, 0.06)',
+    hoverLight: 'rgba(48, 168, 255, 0.03)',
+    button: '#30A8FF',
+    buttonHover: '#2B7BC5',
+    buttonDisabled: '#D1D5DB',
   },
+  // Border colors
   border: {
-    default: 'rgba(55, 53, 47, 0.09)',
-    hover: 'rgba(55, 53, 47, 0.16)',
-    focus: 'rgba(55, 53, 47, 0.3)',
-    active: 'rgba(55, 53, 47, 0.5)',
+    default: '#E5E7EB',
+    hover: '#D1D5DB',
+    focus: '#30A8FF',
   },
+  // Chip colors
   chip: {
-    default: 'rgba(55, 53, 47, 0.08)',
-    text: 'rgba(55, 53, 47, 0.8)',
-    success: 'rgba(46, 170, 220, 0.1)',
-    successText: 'rgba(46, 170, 220, 1)',
+    default: 'rgba(48, 168, 255, 0.08)',
+    text: '#30A8FF',
+    success: '#D1FAE5',
+    successText: '#059669',
   },
+  // Error colors
   error: {
-    background: 'rgba(235, 87, 87, 0.1)',
-    text: 'rgba(235, 87, 87, 1)',
-    border: 'rgba(235, 87, 87, 0.2)',
+    background: '#FEE2E2',
+    text: '#DC2626',
+    border: '#FECACA',
   },
+  // Shadow
   shadow: {
-    dialog: 'rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, rgba(15, 15, 15, 0.1) 0px 3px 6px, rgba(15, 15, 15, 0.2) 0px 9px 24px',
+    dialog: 'rgba(0, 0, 0, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.05) 0px 3px 6px, rgba(0, 0, 0, 0.1) 0px 9px 24px',
+    card: 'rgba(0, 0, 0, 0.04) 0px 2px 8px, rgba(0, 0, 0, 0.02) 0px 1px 3px',
+    button: 'rgba(48, 168, 255, 0.2) 0px 4px 12px',
   },
 };
 
@@ -43,14 +57,14 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: notionColors.text.primary,
-    },
-    secondary: {
-      main: notionColors.text.secondary,
+      main: notionColors.primary.main,
+      light: notionColors.primary.light,
+      dark: notionColors.primary.dark,
+      contrastText: notionColors.primary.contrast,
     },
     background: {
       default: notionColors.background.default,
-      paper: notionColors.background.default,
+      paper: notionColors.background.paper,
     },
     text: {
       primary: notionColors.text.primary,
@@ -124,27 +138,22 @@ export const theme = createTheme({
         contained: {
           backgroundColor: notionColors.background.button,
           color: 'white',
-          boxShadow: 'none',
+          boxShadow: notionColors.shadow.button,
+          fontWeight: 500,
           '&:hover': {
             backgroundColor: notionColors.background.buttonHover,
-            boxShadow: 'none',
+            boxShadow: notionColors.shadow.button,
+            transform: 'translateY(-1px)',
           },
           '&:disabled': {
             backgroundColor: notionColors.background.buttonDisabled,
+            boxShadow: 'none',
           },
         },
         text: {
           color: notionColors.text.secondary,
           '&:hover': {
             backgroundColor: notionColors.background.hover,
-          },
-        },
-        outlined: {
-          borderColor: notionColors.border.hover,
-          color: notionColors.text.secondary,
-          '&:hover': {
-            backgroundColor: notionColors.background.hover,
-            borderColor: notionColors.border.focus,
           },
         },
       },
@@ -155,13 +164,15 @@ export const theme = createTheme({
           '& .MuiOutlinedInput-root': {
             borderRadius: '3px',
             '& fieldset': {
-              borderColor: notionColors.border.hover,
+              borderColor: notionColors.border.default,
+              borderWidth: '1.5px',
             },
             '&:hover fieldset': {
-              borderColor: notionColors.border.focus,
+              borderColor: notionColors.border.hover,
             },
             '&.Mui-focused fieldset': {
-              borderColor: notionColors.border.active,
+              borderColor: notionColors.primary.main,
+              borderWidth: '2px',
             },
             '& input': {
               fontSize: '14px',
@@ -197,10 +208,7 @@ export const theme = createTheme({
           fontSize: '12px',
           height: '24px',
           border: 'none',
-        },
-        outlined: {
-          backgroundColor: notionColors.chip.default,
-          color: notionColors.chip.text,
+          fontWeight: 500,
         },
       },
     },
@@ -218,8 +226,9 @@ export const theme = createTheme({
             },
           },
           '& .MuiTabs-indicator': {
-            backgroundColor: notionColors.text.primary,
-            height: '2px',
+            backgroundColor: notionColors.primary.main,
+            height: '3px',
+            borderRadius: '3px 3px 0 0',
           },
         },
       },
@@ -260,8 +269,20 @@ export const theme = createTheme({
     MuiDialog: {
       styleOverrides: {
         paper: {
-          borderRadius: '3px',
+          borderRadius: '8px',
           boxShadow: notionColors.shadow.dialog,
+          border: `1px solid ${notionColors.border.default}`,
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          boxShadow: notionColors.shadow.card,
+        },
+        elevation1: {
+          boxShadow: notionColors.shadow.card,
         },
       },
     },
@@ -278,30 +299,6 @@ export const theme = createTheme({
         root: {
           padding: '16px 24px',
           borderTop: `1px solid ${notionColors.border.default}`,
-        },
-      },
-    },
-    MuiAccordion: {
-      styleOverrides: {
-        root: {
-          border: `1px solid ${notionColors.border.default}`,
-          borderRadius: '3px',
-          boxShadow: 'none',
-          '&:before': {
-            display: 'none',
-          },
-          '&.Mui-expanded': {
-            margin: 0,
-          },
-        },
-      },
-    },
-    MuiAccordionSummary: {
-      styleOverrides: {
-        root: {
-          '& .MuiAccordionSummary-content': {
-            margin: '12px 0',
-          },
         },
       },
     },

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api, type CalendarEvent } from '../api';
+import { api, type CalendarEvent } from '../apis/api';
 
 export function useCalendarEvents() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -22,14 +22,13 @@ export function useCalendarEvents() {
     }
   }, []);
 
-  const deleteEvent = useCallback(async (eventId: number) => {
+  const deleteEvents = useCallback(async (eventIds: number[]) => {
     setError(null);
     try {
-      await api.deleteCalendarEvent(eventId);
-      // Remove the event from local state
-      setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+      await api.deleteCalendarEvents(eventIds);
+      setEvents(prevEvents => prevEvents.filter(event => !eventIds.includes(event.id)));
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete calendar event';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete calendar events';
       setError(errorMessage);
       throw err;
     }
@@ -40,7 +39,7 @@ export function useCalendarEvents() {
     loading,
     error,
     loadEvents,
-    deleteEvent,
+    deleteEvents,
   };
 }
 

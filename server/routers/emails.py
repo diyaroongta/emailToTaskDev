@@ -1,6 +1,7 @@
-from flask import Blueprint, session, request, jsonify
+from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone, timedelta
 from dateutil import parser as dateutil_parser
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 from server.utils import get_gmail_service, get_current_user, message_to_payload
 from server.config import DEFAULT_PROVIDER, TASKS_LIST_TITLE
@@ -10,6 +11,37 @@ from server.providers.google_tasks import create_task as create_google_task, Goo
 
 emails_bp = Blueprint('emails', __name__)
 logger = logging.getLogger(__name__)
+
+def resolve_client_timezone(timezone_name: str | None):
+    if not timezone_name:
+        return timezone.utc
+    try:
+        return ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        logger.warning("Unknown timezone '%s', defaulting to UTC", timezone_name)
+        return timezone.utc
+
+def parse_datetime_with_timezone(value: str | None, tzinfo):
+    if not value:
+        return None
+    try:
+        dt = dateutil_parser.isoparse(value)
+    except Exception:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=tzinfo)
+    return dt
+
+def timezone_name_from_dt(dt: datetime):
+    tz = dt.tzinfo
+    if isinstance(tz, ZoneInfo):
+        return tz.key
+    if tz:
+        name = getattr(tz, "zone", None)
+        if name:
+            return name
+        return tz.tzname(None) or "UTC"
+    return "UTC"
 
 def get_optional_int_param(name: str, minimum: int | None = None, maximum: int | None = None) -> int | None:
     raw = request.values.get(name, None)
@@ -25,32 +57,12 @@ def get_optional_int_param(name: str, minimum: int | None = None, maximum: int |
         val = maximum
     return val
 
-def parse_since_to_utc(since_hours: str | None, since_iso: str | None):
+def parse_since_to_utc(since_iso: str | None):
     """
     Return a UTC-aware datetime cutoff or None.
     Accepts:
-      - since_hours: "24", "24h", "1.5h", "90m" (minutes), ""
       - since_iso: ISO 8601 like "2025-10-28T12:30:00Z" or "2025-10-28 12:30:00-04:00"
-    If both provided, since_hours takes precedence.
     """
-    # Handle hours/minutes first
-    if since_hours:
-        s = since_hours.strip().lower()
-        if s:
-            try:
-                # support "xh" or plain number
-                if s.endswith("h"):
-                    hours = float(s[:-1])
-                    return datetime.now(timezone.utc) - timedelta(hours=hours)
-                if s.endswith("m"):
-                    minutes = float(s[:-1])
-                    return datetime.now(timezone.utc) - timedelta(minutes=minutes)
-                # plain number => hours
-                hours = float(s)
-                return datetime.now(timezone.utc) - timedelta(hours=hours)
-            except ValueError:
-                pass  # fall through to since_iso
-
     # Handle explicit ISO datetime
     if since_iso:
         s = since_iso.strip()
@@ -150,11 +162,11 @@ def dispatch_task(provider: str, payload: dict) -> dict:
 
     raise ValueError(f"Unsupported provider '{provider}'")
 
-def create_google_calendar_event(meeting: dict):
+def create_google_calendar_event(meeting: dict, client_timezone: str | None):
     """
     Create a Google Calendar event for a meeting.
-    Automatically uses start/end times from the meeting dict, or
-    attempts to infer them from the email body or summary.
+    Use the client's timezone to interpret naive meeting times so the
+    wall-clock time remains consistent.
     """
     from server.utils import get_calendar_service
     service = get_calendar_service()
@@ -163,43 +175,40 @@ def create_google_calendar_event(meeting: dict):
 
     raw_start = meeting.get("start_datetime")
     raw_end = meeting.get("end_datetime")
+    user_tz = resolve_client_timezone(client_timezone)
     now_utc = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 
-    # Parse supplied start time or fall back to now
-    if raw_start:
-        try:
-            start_obj = dateutil_parser.isoparse(raw_start)
-        except Exception:
-            start_obj = now_utc
+    start_obj = parse_datetime_with_timezone(raw_start, user_tz)
+    if start_obj is None:
+        start_obj = now_utc.astimezone(user_tz)
     else:
-        start_obj = now_utc
+        if start_obj.tzinfo is None:
+            start_obj = start_obj.replace(tzinfo=user_tz)
 
-    # Never schedule meetings in the past
-    if start_obj < now_utc:
-        start_obj = now_utc
+    start_obj_utc = start_obj.astimezone(timezone.utc)
+    if start_obj_utc < now_utc:
+        start_obj = now_utc.astimezone(start_obj.tzinfo or user_tz)
 
-    start_dt = start_obj.isoformat()
-
-    # Parse end time or default to one hour after start
-    if raw_end:
-        try:
-            end_obj = dateutil_parser.isoparse(raw_end)
-        except Exception:
+    end_obj = parse_datetime_with_timezone(raw_end, user_tz)
+    if end_obj:
+        if end_obj.tzinfo is None:
+            end_obj = end_obj.replace(tzinfo=user_tz)
+        end_obj = end_obj.astimezone(start_obj.tzinfo or user_tz)
+        if end_obj <= start_obj:
             end_obj = start_obj + timedelta(hours=1)
     else:
         end_obj = start_obj + timedelta(hours=1)
 
-    if end_obj <= start_obj:
-        end_obj = start_obj + timedelta(hours=1)
-
+    start_dt = start_obj.isoformat()
     end_dt = end_obj.isoformat()
+    event_timezone = timezone_name_from_dt(start_obj)
 
     event = {
         "summary": meeting.get("summary") or "Meeting",
         "location": meeting.get("location"),
         "description": meeting.get("summary"),
-        "start": {"dateTime": start_dt, "timeZone": "UTC"},
-        "end": {"dateTime": end_dt, "timeZone": "UTC"},
+        "start": {"dateTime": start_dt, "timeZone": event_timezone},
+        "end": {"dateTime": end_dt, "timeZone": event_timezone},
         "attendees": [{"email": p} for p in meeting.get("participants", []) if p],
     }
 
@@ -231,13 +240,12 @@ def fetch_emails():
     custom_query = request.values.get("q")
     max_msgs = get_optional_int_param("max", minimum=1)
 
-    since_hours = request.values.get("since_hours")
     since_iso = request.values.get("since")
-    dry_run = (request.values.get("dry_run", "false").lower() == "true")
+    client_timezone = request.values.get("timezone")
     
     logger.info(
         f"Fetch emails params: provider={provider}, window={window}, max={max_msgs}, "
-        f"since_hours={since_hours}, since={since_iso}, q={custom_query}, dry_run={dry_run}"
+        f"since={since_iso}, q={custom_query}, timezone={client_timezone}"
     )
 
     # Build Gmail query
@@ -246,12 +254,13 @@ def fetch_emails():
         query_parts.append(custom_query)
 
     # Coarse time narrowing
-    since_dt = parse_since_to_utc(since_hours, since_iso)
+    since_dt = parse_since_to_utc(since_iso)
     min_internal_ms = None
     if since_dt:
         y, m, d = since_dt.date().year, since_dt.date().month, since_dt.date().day
         query_parts.append(f"after:{y}/{m:02d}/{d:02d}")
         min_internal_ms = int(since_dt.timestamp() * 1000)
+        logger.info(f"Time filter: since={since_dt.isoformat()} (UTC), min_internal_ms={min_internal_ms}")
     elif window:
         query_parts.append(f"newer_than:{window}")
 
@@ -321,7 +330,7 @@ def fetch_emails():
                     f"Subject: '{subject}' | "
                     f"Meeting Summary: '{meeting_info.get('summary', 'N/A')}'"
                 )
-                calendar_event = create_google_calendar_event(meeting_info)
+                calendar_event = create_google_calendar_event(meeting_info, client_timezone)
                 if calendar_event:
                     logger.info(
                         f"Calendar event created successfully - Email ID: {message_id_short} | "
@@ -331,14 +340,23 @@ def fetch_emails():
                     # Save calendar event to database
                     start_dt = None
                     end_dt = None
+                    event_timezone_str = calendar_event.get("start", {}).get("timeZone")
+                    event_tz = resolve_client_timezone(event_timezone_str) if event_timezone_str else timezone.utc
+                    
                     if calendar_event.get("start", {}).get("dateTime"):
                         try:
-                            start_dt = dateutil_parser.isoparse(calendar_event["start"]["dateTime"])
+                            parsed_start = dateutil_parser.isoparse(calendar_event["start"]["dateTime"])
+                            if parsed_start.tzinfo is None:
+                                parsed_start = parsed_start.replace(tzinfo=event_tz)
+                            start_dt = parsed_start.astimezone(timezone.utc)
                         except Exception:
                             pass
                     if calendar_event.get("end", {}).get("dateTime"):
                         try:
-                            end_dt = dateutil_parser.isoparse(calendar_event["end"]["dateTime"])
+                            parsed_end = dateutil_parser.isoparse(calendar_event["end"]["dateTime"])
+                            if parsed_end.tzinfo is None:
+                                parsed_end = parsed_end.replace(tzinfo=event_tz)
+                            end_dt = parsed_end.astimezone(timezone.utc)
                         except Exception:
                             pass
                     
@@ -403,14 +421,6 @@ def fetch_emails():
                 already_processed_count += 1
                 continue
 
-            if dry_run:
-                created_tasks.append({
-                    "message_id": message_id,
-                    "provider": provider,
-                    "task": {"status": "dry_run", "title": payload.get("subject", "")},
-                })
-                continue
-
             try:
                 task = dispatch_task(provider, payload)
                 task_id = task.get("id") if isinstance(task, dict) else None
@@ -468,6 +478,7 @@ def fetch_emails():
 
     logger.info(
         f"Email processing complete: {len(created_tasks)} tasks created, "
+        f"{len(created_calendar_events)} calendar events created, "
         f"{already_processed_count} already processed, {len(ids)} total found, {considered} considered"
     )
 

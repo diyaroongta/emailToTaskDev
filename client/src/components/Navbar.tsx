@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import { Email as EmailIcon, Settings as SettingsIcon, AutoAwesome as ConverterIcon} from '@mui/icons-material';
-import { api } from '../api';
+import { api } from '../apis/api';
 import { notionColors } from '../theme';
 
 interface NavbarProps {
@@ -22,7 +22,7 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
       elevation={0}
       sx={{ 
         mb: 0,
-        backgroundColor: notionColors.background.default,
+        backgroundColor: '#FFFFFF',
         color: 'text.primary',
         borderBottom: `1px solid ${notionColors.border.default}`,
       }}
@@ -41,14 +41,15 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
             transition: 'opacity 0.2s',
           }}
         >
-          <EmailIcon sx={{ fontSize: 20, color: notionColors.text.icon }} />
+          <EmailIcon sx={{ fontSize: 22, color: notionColors.primary.main }} />
           <Typography 
             variant="h6" 
             component="div" 
             sx={{ 
-              fontWeight: 500,
-              fontSize: '16px',
+              fontWeight: 600,
+              fontSize: '18px',
               letterSpacing: '-0.01em',
+              color: notionColors.primary.main,
             }}
           >
             Taskflow
@@ -64,7 +65,11 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
                 variant="text"
                 startIcon={<ConverterIcon />}
                 sx={{
-                  color: location.pathname === '/converter' ? notionColors.text.primary : notionColors.text.secondary,
+                  color: location.pathname === '/converter' ? notionColors.primary.main : notionColors.text.secondary,
+                  '&:hover': {
+                    backgroundColor: notionColors.background.hover,
+                    color: notionColors.primary.main,
+                  },
                 }}
               >
                 Converter
@@ -75,7 +80,11 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
                 variant="text"
                 startIcon={<SettingsIcon />}
                 sx={{
-                  color: location.pathname === '/settings' ? notionColors.text.primary : notionColors.text.secondary,
+                  color: location.pathname === '/settings' ? notionColors.primary.main : notionColors.text.secondary,
+                  '&:hover': {
+                    backgroundColor: notionColors.background.hover,
+                    color: notionColors.primary.main,
+                  },
                 }}
               >
                 Settings

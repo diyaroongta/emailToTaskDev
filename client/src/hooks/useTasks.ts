@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api, type Task } from '../api';
+import { api, type Task } from '../apis/api';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -22,14 +22,13 @@ export function useTasks() {
     }
   }, []);
 
-  const deleteTask = useCallback(async (taskId: number) => {
+  const deleteTasks = useCallback(async (taskIds: number[]) => {
     setError(null);
     try {
-      await api.deleteTask(taskId);
-      // Remove the task from local state
-      setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+      await api.deleteTasks(taskIds);
+      setTasks(prevTasks => prevTasks.filter(task => !taskIds.includes(task.id)));
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete task';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete tasks';
       setError(errorMessage);
       throw err;
     }
@@ -40,7 +39,7 @@ export function useTasks() {
     loading,
     error,
     loadTasks,
-    deleteTask,
+    deleteTasks,
   };
 }
 

@@ -35,7 +35,7 @@ export default function MaxEmails({
       sx={{
         flex: fullWidth ? undefined : 1,
         '& .MuiInputBase-input': {
-          height: '56px',
+          height: '60px',
           boxSizing: 'border-box'
         },
         ...sx,

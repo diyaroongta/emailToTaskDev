@@ -1,4 +1,5 @@
 import { Box, Typography } from '@mui/material';
+import { notionColors } from '../theme';
 
 interface PageHeaderProps {
   title?: string;
@@ -17,7 +18,10 @@ export default function PageHeader({
           sx={{ 
             fontSize: '32px',
             mb: 0.5,
+            mt: 5,
             letterSpacing: '-0.01em',
+            color: notionColors.primary.main,
+            fontWeight: 600,
           }}
         >
           {title}
@@ -26,6 +30,7 @@ export default function PageHeader({
           variant="body2" 
           sx={{ 
             fontSize: '14px',
+            color: notionColors.text.secondary,
           }}
         >
           {description}

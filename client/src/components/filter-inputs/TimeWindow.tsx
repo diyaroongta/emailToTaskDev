@@ -65,9 +65,6 @@ export default function TimeWindow({
       handleOpenDatePicker();
     } else {
       onChange(newWindow);
-      if (onSinceChange) {
-        onSinceChange(undefined);
-      }
     }
   };
 
@@ -84,7 +81,7 @@ export default function TimeWindow({
         sx={{
           flex: fullWidth ? undefined : 1,
           '& .MuiInputBase-input': {
-            height: '56px',
+            height: '60px',
             boxSizing: 'border-box'
           },
           ...sx,
@@ -116,6 +113,7 @@ export default function TimeWindow({
                 label="Since (Date & Time)"
                 value={tempDate}
                 onChange={handleDateChange}
+                ampm={false}
                 slotProps={{
                   textField: {
                     fullWidth: true,

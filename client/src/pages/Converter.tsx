@@ -14,7 +14,7 @@ import {
   List as ListIcon,
   Event as EventIcon,
 } from '@mui/icons-material';
-import type { FetchEmailsParams, Task, CalendarEvent } from '../api';
+import type { FetchEmailsParams, Task, CalendarEvent } from '../apis/api';
 import { notionColors } from '../theme';
 import { useTasks, useCalendarEvents, useFetchEmails, useSettings } from '../hooks';
 import PageHeader from '../components/PageHeader';
@@ -53,10 +53,54 @@ export default function Converter({ authenticated }: ConverterProps) {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const [tabValue, setTabValue] = useState(0);
   
-  const { tasks: allTasks, loading: loadingTasks, loadTasks } = useTasks();
-  const { events: allCalendarEvents, loading: loadingCalendarEvents, loadEvents } = useCalendarEvents();
+  const { tasks: allTasks, loading: loadingTasks, loadTasks, deleteTasks } = useTasks();
+  const { events: allCalendarEvents, loading: loadingCalendarEvents, loadEvents, deleteEvents } = useCalendarEvents();
   const { loading, fetchEmails } = useFetchEmails();
   const { settings } = useSettings(authenticated);
+
+  const handleOpenTasks = (tasks: Task[]) => {
+    tasks.forEach(task => {
+      if (task.task_link) {
+        window.open(task.task_link, '_blank', 'noopener,noreferrer');
+      }
+    });
+  };
+
+  const handleOpenEvents = (events: CalendarEvent[]) => {
+    events.forEach(event => {
+      if (event.html_link) {
+        window.open(event.html_link, '_blank', 'noopener,noreferrer');
+      }
+    });
+  };
+
+  const handleDeleteTasks = async (taskIds: number[]) => {
+    try {
+      await deleteTasks(taskIds);
+      setSnackbarMessage(`Successfully deleted ${taskIds.length} task(s)`);
+      setSnackbarSeverity('success');
+      setShowSnackbar(true);
+      loadTasks().catch(() => {});
+    } catch (err) {
+      setSnackbarMessage(err instanceof Error ? err.message : 'Failed to delete tasks');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    }
+  };
+
+  const handleDeleteEvents = async (eventIds: number[]) => {
+    try {
+      await deleteEvents(eventIds);
+      setSnackbarMessage(`Successfully deleted ${eventIds.length} event(s)`);
+      setSnackbarSeverity('success');
+      setShowSnackbar(true);
+      loadEvents().catch(() => {});
+    } catch (err) {
+      setSnackbarMessage(err instanceof Error ? err.message : 'Failed to delete events');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    }
+  };
 
   // Task table columns
   const taskColumns: Column<Task>[] = useMemo(() => [
@@ -84,8 +128,9 @@ export default function Converter({ authenticated }: ConverterProps) {
           size="small"
           sx={{ 
             backgroundColor: notionColors.chip.default,
-            color: notionColors.chip.text,
+            color: notionColors.primary.main,
             maxWidth: '100%',
+            fontWeight: 500,
             '& .MuiChip-label': {
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -131,7 +176,6 @@ export default function Converter({ authenticated }: ConverterProps) {
       header: 'Event',
       render: (event) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
-          <EventIcon sx={{ fontSize: 18, color: notionColors.text.secondary, flexShrink: 0 }} />
           <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px' }}>
             {event.summary || 'Meeting'}
           </Typography>
@@ -202,12 +246,11 @@ export default function Converter({ authenticated }: ConverterProps) {
   
   // Compute base formData from settings
   const baseFormData = useMemo<FetchEmailsParams>(() => ({
-    provider: 'google_tasks', // Always use Google Tasks
+    provider: 'google_tasks',
     max: settings?.max,
     window: settings?.window || '',
-          since_hours: undefined,
-          since: '',
-          q: '',
+    since: '',
+    q: '',
   }), [settings]);
   
   const [formData, setFormData] = useState<FetchEmailsParams>(baseFormData);
@@ -245,26 +288,34 @@ export default function Converter({ authenticated }: ConverterProps) {
         ...formData,
         provider: 'google_tasks', // Always use Google Tasks
         max: formData.max ? Number(formData.max) : undefined,
-        since_hours: formData.since_hours ? Number(formData.since_hours) : undefined,
         timezone,
       };
 
       const result = await fetchEmails(params);
+      const calendarCount = result.calendar_events?.length || 0;
 
-      if (result.processed === 0 && result.already_processed === 0) {
+      if (result.processed === 0 && result.already_processed === 0 && calendarCount === 0) {
         setSnackbarMessage('No emails found matching your criteria.');
         setSnackbarSeverity('warning');
         setShowSnackbar(true);
-      } else if (result.processed === 0 && result.already_processed > 0) {
+      } else if (result.processed === 0 && result.already_processed > 0 && calendarCount === 0) {
         setSnackbarMessage(`Found ${result.already_processed} emails, but they were already processed. No new tasks created.`);
         setSnackbarSeverity('info');
         setShowSnackbar(true);
       } else {
-        const calendarCount = result.calendar_events?.length || 0;
-        let message = `Successfully processed ${result.processed} email(s) and created ${result.processed} task(s)!`;
-        if (calendarCount > 0) {
+        let message = '';
+        if (result.processed > 0) {
+          message = `Successfully processed ${result.processed} email${result.processed > 1 ? 's' : ''} and created ${result.processed} task${result.processed > 1 ? 's' : ''}`;
+        } else if (calendarCount > 0) {
+          message = `Processed emails and created ${calendarCount} calendar event(s).`;
+        } else {
+          message = `Found ${result.already_processed} emails, but they were already processed.`;
+        }
+        
+        if (result.processed > 0 && calendarCount > 0) {
           message += ` Also created ${calendarCount} calendar event(s).`;
         }
+        
         setSnackbarMessage(message);
         setSnackbarSeverity('success');
         setShowSnackbar(true);
@@ -296,14 +347,34 @@ export default function Converter({ authenticated }: ConverterProps) {
         <Box sx={{ mb: 4 }}>
           <PageHeader />
 
-          <Box sx={{ borderBottom: `1px solid ${notionColors.border.default}`, mb: 4 }}>
+          <Box sx={{ borderBottom: `2px solid ${notionColors.border.default}`, mb: 4 }}>
             <Tabs 
               value={tabValue} 
               onChange={(_, newValue) => setTabValue(newValue)}
+              sx={{
+                '& .MuiTab-root': {
+                  minHeight: 48,
+                  '&.Mui-selected': {
+                    color: notionColors.primary.main,
+                  },
+                },
+              }}
             >
-              <Tab label="Process Emails" icon={<DownloadIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-              <Tab label="All Tasks" icon={<ListIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
-              <Tab label="Calendar" icon={<EventIcon sx={{ fontSize: 18 }} />} iconPosition="start" />
+              <Tab 
+                label="Process Emails" 
+                icon={<DownloadIcon sx={{ fontSize: 18, color: tabValue === 0 ? notionColors.primary.main : 'inherit' }} />} 
+                iconPosition="start" 
+              />
+              <Tab 
+                label="All Tasks" 
+                icon={<ListIcon sx={{ fontSize: 18, color: tabValue === 1 ? notionColors.primary.main : 'inherit' }} />} 
+                iconPosition="start" 
+              />
+              <Tab 
+                label="Calendar" 
+                icon={<EventIcon sx={{ fontSize: 18, color: tabValue === 2 ? notionColors.primary.main : 'inherit' }} />} 
+                iconPosition="start" 
+              />
             </Tabs>
             </Box>
 
@@ -324,8 +395,10 @@ export default function Converter({ authenticated }: ConverterProps) {
               emptyIcon={<ListIcon sx={{ fontSize: 48, color: notionColors.text.disabled, mb: 2 }} />}
               emptyTitle="No Tasks Found"
               emptyMessage="No tasks have been processed yet. Start by processing emails from your Gmail account."
-              loadingMessage="Loading tasks..."
               getItemId={(task) => task.id}
+              onOpen={handleOpenTasks}
+              onDelete={handleDeleteTasks}
+              getItemLink={(task) => task.task_link}
             />
           </TabPanel>
 
@@ -337,8 +410,10 @@ export default function Converter({ authenticated }: ConverterProps) {
               emptyIcon={<EventIcon sx={{ fontSize: 48, color: notionColors.text.disabled, mb: 2 }} />}
               emptyTitle="No Calendar Events Found"
               emptyMessage="No calendar events have been created yet. Process emails with meeting information to create calendar events."
-              loadingMessage="Loading calendar events..."
               getItemId={(event) => event.id}
+              onOpen={handleOpenEvents}
+              onDelete={handleDeleteEvents}
+              getItemLink={(event) => event.html_link}
             />
           </TabPanel>
               </Box>

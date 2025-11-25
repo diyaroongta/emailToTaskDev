@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api } from '../api';
+import { api } from '../apis/api';
 
 export function useAuth() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);

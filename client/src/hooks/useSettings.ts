@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api, type Settings } from '../api';
+import { api, type Settings } from '../apis/api';
 
 const DEFAULT_SETTINGS: Settings = {
   max: undefined,

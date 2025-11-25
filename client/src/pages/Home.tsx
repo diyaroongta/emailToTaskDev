@@ -1,8 +1,9 @@
 import { Box, Button, Typography } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { api } from '../apis/api';
 import { notionColors } from '../theme';
+import productivityImage from '../assets/image.svg';
 
 interface HomeProps {
   authenticated: boolean;
@@ -11,7 +12,18 @@ interface HomeProps {
 export default function Home({ authenticated }: HomeProps) {
   if (!authenticated) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', gap: 3 }}>
+        <Box
+          component="img"
+          src={productivityImage}
+          alt="Productivity and time management"
+          sx={{
+            maxWidth: '100%',
+            width: '250px',
+            height: 'auto',
+            objectFit: 'contain',
+          }}
+        />
         <Box sx={{ textAlign: 'center', maxWidth: 600, px: 3 }}>
           <Typography 
             variant="h1" 
@@ -22,6 +34,7 @@ export default function Home({ authenticated }: HomeProps) {
               lineHeight: 1.2,
               mb: 2,
               letterSpacing: '-0.02em',
+              color: notionColors.primary.main,
             }}
           >
             Taskflow
@@ -32,6 +45,7 @@ export default function Home({ authenticated }: HomeProps) {
               fontSize: '18px',
               mb: 4,
               lineHeight: 1.6,
+              color: notionColors.text.secondary,
             }}
           >
             Convert Gmail emails to tasks automatically using AI-powered classification
@@ -42,8 +56,9 @@ export default function Home({ authenticated }: HomeProps) {
             startIcon={<GoogleIcon />}
             sx={{ 
               fontSize: '15px',
-              px: 3,
-              py: 1.25,
+              px: 4,
+              py: 1.5,
+              borderRadius: '8px',
             }}
           >
             Connect with Google
@@ -54,7 +69,18 @@ export default function Home({ authenticated }: HomeProps) {
   }
 
     return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', gap: 3 }}>
+      <Box
+        component="img"
+        src={productivityImage}
+        alt="Productivity and time management"
+        sx={{
+          maxWidth: '100%',
+          width: '250px',
+          height: 'auto',
+          objectFit: 'contain',
+        }}
+      />
       <Box sx={{ textAlign: 'center', maxWidth: 600, px: 3 }}>
         <Typography 
           variant="h1" 
@@ -65,6 +91,7 @@ export default function Home({ authenticated }: HomeProps) {
             lineHeight: 1.2,
             mb: 2,
             letterSpacing: '-0.02em',
+            color: notionColors.primary.main,
           }}
         >
           Welcome to Taskflow
@@ -86,8 +113,9 @@ export default function Home({ authenticated }: HomeProps) {
           variant="contained"
           sx={{ 
             fontSize: '15px',
-            px: 3,
-            py: 1.25,
+            px: 4,
+            py: 1.5,
+            borderRadius: '8px',
           }}
         >
           Get Started

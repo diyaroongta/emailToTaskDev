@@ -51,9 +51,9 @@ def api_all_results():
         return jsonify({"error": "Failed to fetch tasks"}), 500
 
 
-@tasks_bp.route("/tasks/<task_id>", methods=["DELETE"])
-def delete_task(task_id: str):
-    """Delete a task from Google Tasks and the database."""
+@tasks_bp.route("/tasks", methods=["DELETE"])
+def delete_tasks():
+    """Delete multiple tasks from Google Tasks and the database."""
     if "credentials" not in session:
         return jsonify({"error": "Not authenticated"}), 401
 
@@ -64,41 +64,49 @@ def delete_task(task_id: str):
     user_id = user.id
 
     try:
+        data = request.get_json()
+        task_ids = data.get("task_ids", [])
+        
+        if not task_ids or not isinstance(task_ids, list):
+            return jsonify({"error": "Invalid request. Expected 'task_ids' array"}), 400
+
+        tasks_service = get_tasks_service()
+        deleted_count = 0
+        errors = []
+
         with db_session() as s:
-            # Find the task in the database
-            stmt = select(Task).where(Task.id == int(task_id)).where(Task.user_id == user_id)
-            task = s.execute(stmt).scalar_one_or_none()
-            
-            if not task:
-                return jsonify({"error": "Task not found"}), 404
-
-            # Get task metadata to find tasklist_id and provider_task_id
-            metadata = task.provider_metadata or {}
-            provider_task_id = task.provider_task_id
-            tasklist_id = metadata.get("_tasklist_id")
-
-            if not provider_task_id:
-                s.delete(task)
-                return jsonify({"message": "Task deleted from database"})
-
-            # Delete from Google Tasks if we have the necessary info
-            if task.provider == "google_tasks" and tasklist_id:
-                tasks_service = get_tasks_service()
-                if not tasks_service:
-                    return jsonify({"error": "Not authenticated for Google Tasks"}), 401
-                
+            for task_id_str in task_ids:
                 try:
-                    delete_google_task(tasks_service, tasklist_id, provider_task_id)
-                except GoogleTasksError as e:
-                    # Continue to delete from database even if Google Tasks deletion fails
-                    pass
+                    task_id = int(task_id_str)
+                    stmt = select(Task).where(Task.id == task_id).where(Task.user_id == user_id)
+                    task = s.execute(stmt).scalar_one_or_none()
+                    
+                    if not task:
+                        errors.append(f"Task {task_id} not found")
+                        continue
 
-            # Delete from database
-            s.delete(task)
+                    metadata = task.provider_metadata or {}
+                    provider_task_id = task.provider_task_id
+                    tasklist_id = metadata.get("_tasklist_id")
 
-        return jsonify({"message": "Task deleted successfully"})
-    except ValueError:
-        return jsonify({"error": "Invalid task ID"}), 400
+                    if provider_task_id and task.provider == "google_tasks" and tasklist_id and tasks_service:
+                        try:
+                            delete_google_task(tasks_service, tasklist_id, provider_task_id)
+                        except GoogleTasksError:
+                            pass
+
+                    s.delete(task)
+                    deleted_count += 1
+                except ValueError:
+                    errors.append(f"Invalid task ID: {task_id_str}")
+                except Exception as e:
+                    errors.append(f"Error deleting task {task_id_str}: {str(e)}")
+
+        result = {"message": f"Deleted {deleted_count} task(s) successfully", "deleted_count": deleted_count}
+        if errors:
+            result["errors"] = errors
+        
+        return jsonify(result)
     except Exception as e:
-        return jsonify({"error": "Failed to delete task"}), 500
+        return jsonify({"error": "Failed to delete tasks"}), 500
 
