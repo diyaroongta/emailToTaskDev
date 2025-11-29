@@ -65,6 +65,7 @@ class Task(Base):
     provider: Mapped[str] = mapped_column(Text, nullable=False)
     provider_task_id: Mapped[str | None] = mapped_column(Text)
     provider_metadata: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Relationships
@@ -84,6 +85,7 @@ class CalendarEvent(Base):
     end_datetime: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     html_link: Mapped[str | None] = mapped_column(Text)
     provider_metadata: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")  # pending, created
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     
     # Relationships

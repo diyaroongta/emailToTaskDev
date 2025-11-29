@@ -24,5 +24,16 @@ export class CalendarService extends BaseApiService {
     
     await this.handleResponse<void>(response, 'Failed to delete calendar events');
   }
+
+  async confirmCalendarEvents(eventIds: number[]): Promise<{ message: string; confirmed_count: number; errors?: string[] }> {
+    const response = await fetch(`${this.baseUrl}/calendar-events/confirm`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ event_ids: eventIds }),
+    });
+    
+    return this.handleResponse<{ message: string; confirmed_count: number; errors?: string[] }>(response, 'Failed to confirm calendar events');
+  }
 }
 

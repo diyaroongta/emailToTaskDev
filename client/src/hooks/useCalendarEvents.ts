@@ -34,12 +34,26 @@ export function useCalendarEvents() {
     }
   }, []);
 
+  const confirmEvents = useCallback(async (eventIds: number[]) => {
+    setError(null);
+    try {
+      await api.calendar.confirmCalendarEvents(eventIds);
+      // Reload events to get updated status
+      await loadEvents();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to confirm calendar events';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [loadEvents]);
+
   return {
     events,
     loading,
     error,
     loadEvents,
     deleteEvents,
+    confirmEvents,
   };
 }
 

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, Button, CircularProgress } from '@mui/material';
-import { OpenInNew as OpenInNewIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { OpenInNew as OpenInNewIcon, Delete as DeleteIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
 import { notionColors } from '../../theme';
 
 export interface Column<T> {
@@ -21,7 +21,9 @@ interface DataTableProps<T> {
   getItemId: (item: T) => number;
   onOpen?: (items: T[]) => void;
   onDelete?: (itemIds: number[]) => Promise<void>;
+  onConfirm?: (itemIds: number[]) => Promise<void>;
   getItemLink?: (item: T) => string | undefined;
+  getItemStatus?: (item: T) => string | undefined;
 }
 
 export default function DataTable<T>({
@@ -34,10 +36,13 @@ export default function DataTable<T>({
   getItemId,
   onOpen,
   onDelete,
+  onConfirm,
   getItemLink,
+  getItemStatus,
 }: DataTableProps<T>) {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const handleSelectItem = (itemId: number) => {
     const newSelected = new Set(selectedItems);
@@ -64,7 +69,7 @@ export default function DataTable<T>({
 
   const handleOpen = () => {
     if (!onOpen || !getItemLink) return;
-    const selectedData = data.filter(item => selectedItems.has(getItemId(item)) && getItemLink(item));
+    const selectedData = data.filter(item => selectedItems.has(getItemId(item)) && getItemLink && getItemLink(item));
     if (selectedData.length > 0) {
       onOpen(selectedData);
     }
@@ -89,6 +94,36 @@ export default function DataTable<T>({
       setIsDeleting(false);
     }
   };
+
+  const handleConfirm = async () => {
+    if (!onConfirm || !hasSelection) return;
+    
+    // Filter to only pending items
+    const pendingIds = data
+      .filter(item => selectedItems.has(getItemId(item)) && getItemStatus && getItemStatus(item) === 'pending')
+      .map(item => getItemId(item));
+    
+    if (pendingIds.length === 0) {
+      alert('No pending items selected. Please select items with "Pending" status.');
+      return;
+    }
+
+    setIsConfirming(true);
+    try {
+      await onConfirm(pendingIds);
+      setSelectedItems(new Set());
+    } catch (error) {
+      console.error('Failed to confirm items:', error);
+      alert(error instanceof Error ? error.message : 'Failed to confirm items');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // Check if any selected items are pending
+  const hasPendingSelection = selectedItems.size > 0 && data.some(
+    item => selectedItems.has(getItemId(item)) && getItemStatus && getItemStatus(item) === 'pending'
+  );
 
   if (loading) {
     return (
@@ -227,14 +262,34 @@ export default function DataTable<T>({
           </TableBody>
         </Table>
       </TableContainer>
-      {hasSelection && (onOpen || onDelete) && (
+      {hasSelection && (onOpen || onDelete || onConfirm) && (
         <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
+          {onConfirm && hasPendingSelection && (
+            <Button
+              variant="contained"
+              startIcon={<CheckCircleIcon />}
+              onClick={handleConfirm}
+              disabled={isConfirming || isDeleting}
+              sx={{
+                fontSize: '14px',
+                px: 3,
+                py: 1.25,
+                borderRadius: '8px',
+                backgroundColor: notionColors.warning?.main || '#F5A623',
+                '&:hover': {
+                  backgroundColor: notionColors.warning?.dark || '#D68910',
+                },
+              }}
+            >
+              {isConfirming ? 'Confirming...' : `Confirm (${data.filter(item => selectedItems.has(getItemId(item)) && getItemStatus && getItemStatus(item) === 'pending').length})`}
+            </Button>
+          )}
           {onOpen && getItemLink && (
             <Button
               variant="contained"
               startIcon={<OpenInNewIcon />}
               onClick={handleOpen}
-              disabled={isDeleting}
+              disabled={isDeleting || isConfirming}
               sx={{
                 fontSize: '14px',
                 px: 3,
@@ -242,7 +297,7 @@ export default function DataTable<T>({
                 borderRadius: '8px',
               }}
             >
-              Open ({selectedItems.size})
+              Open ({data.filter(item => selectedItems.has(getItemId(item)) && getItemLink && getItemLink(item)).length})
             </Button>
           )}
           {onDelete && (
@@ -250,7 +305,7 @@ export default function DataTable<T>({
               variant="contained"
               startIcon={<DeleteIcon />}
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={isDeleting || isConfirming}
               sx={{
                 fontSize: '14px',
                 px: 3,

@@ -53,14 +53,14 @@ export default function Converter({ authenticated }: ConverterProps) {
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const [tabValue, setTabValue] = useState(0);
   
-  const { tasks: allTasks, loading: loadingTasks, loadTasks, deleteTasks } = useTasks();
-  const { events: allCalendarEvents, loading: loadingCalendarEvents, loadEvents, deleteEvents } = useCalendarEvents();
+  const { tasks: allTasks, loading: loadingTasks, loadTasks, deleteTasks, confirmTasks } = useTasks();
+  const { events: allCalendarEvents, loading: loadingCalendarEvents, loadEvents, deleteEvents, confirmEvents } = useCalendarEvents();
   const { loading, fetchEmails } = useFetchEmails();
   const { settings } = useSettings(authenticated);
 
   const handleOpenTasks = (tasks: Task[]) => {
     tasks.forEach(task => {
-      if (task.task_link) {
+      if (task.task_link && task.status === 'created') {
         window.open(task.task_link, '_blank', 'noopener,noreferrer');
       }
     });
@@ -68,10 +68,38 @@ export default function Converter({ authenticated }: ConverterProps) {
 
   const handleOpenEvents = (events: CalendarEvent[]) => {
     events.forEach(event => {
-      if (event.html_link) {
+      if (event.html_link && event.status === 'created') {
         window.open(event.html_link, '_blank', 'noopener,noreferrer');
       }
     });
+  };
+
+  const handleConfirmTasks = async (taskIds: number[]) => {
+    try {
+      await confirmTasks(taskIds);
+      setSnackbarMessage(`Successfully confirmed ${taskIds.length} task(s)`);
+      setSnackbarSeverity('success');
+      setShowSnackbar(true);
+      loadTasks().catch(() => {});
+    } catch (err) {
+      setSnackbarMessage(err instanceof Error ? err.message : 'Failed to confirm tasks');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    }
+  };
+
+  const handleConfirmEvents = async (eventIds: number[]) => {
+    try {
+      await confirmEvents(eventIds);
+      setSnackbarMessage(`Successfully confirmed ${eventIds.length} event(s)`);
+      setSnackbarSeverity('success');
+      setShowSnackbar(true);
+      loadEvents().catch(() => {});
+    } catch (err) {
+      setSnackbarMessage(err instanceof Error ? err.message : 'Failed to confirm events');
+      setSnackbarSeverity('error');
+      setShowSnackbar(true);
+    }
   };
 
   const handleDeleteTasks = async (taskIds: number[]) => {
@@ -114,23 +142,36 @@ export default function Converter({ authenticated }: ConverterProps) {
     },
     {
       header: 'Status',
-      render: (task) => (
-        <Chip 
-          label={task.status === 'created' ? 'Created' : 'Skipped'} 
-          size="small"
-          sx={{ 
-            backgroundColor: task.status === 'created' ? notionColors.chip.success : notionColors.error.background,
-            color: task.status === 'created' ? notionColors.chip.successText : notionColors.error.text,
-            maxWidth: '100%',
-            fontWeight: 500,
-            '& .MuiChip-label': {
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }
-          }} 
-        />
-      ),
+      render: (task) => {
+        const statusLabels: Record<string, string> = {
+          'pending': 'Pending',
+          'created': 'Created',
+          'skipped': 'Skipped',
+        };
+        const statusColors: Record<string, { bg: string; text: string }> = {
+          'pending': { bg: notionColors.warning?.background || '#FFF4E5', text: notionColors.warning?.text || '#B7791F' },
+          'created': { bg: notionColors.chip.success, text: notionColors.chip.successText },
+          'skipped': { bg: notionColors.error.background, text: notionColors.error.text },
+        };
+        const colors = statusColors[task.status] || statusColors['skipped'];
+        return (
+          <Chip 
+            label={statusLabels[task.status] || 'Unknown'} 
+            size="small"
+            sx={{ 
+              backgroundColor: colors.bg,
+              color: colors.text,
+              maxWidth: '100%',
+              fontWeight: 500,
+              '& .MuiChip-label': {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }
+            }} 
+          />
+        );
+      },
     },
     {
       header: 'Sender',
@@ -184,23 +225,36 @@ export default function Converter({ authenticated }: ConverterProps) {
     },
     {
       header: 'Status',
-      render: (event) => (
-        <Chip 
-          label={event.status === 'created' ? 'Created' : 'Skipped'} 
-          size="small"
-          sx={{ 
-            backgroundColor: event.status === 'created' ? notionColors.chip.success : notionColors.error.background,
-            color: event.status === 'created' ? notionColors.chip.successText : notionColors.error.text,
-            maxWidth: '100%',
-            fontWeight: 500,
-            '& .MuiChip-label': {
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }
-          }} 
-        />
-      ),
+      render: (event) => {
+        const statusLabels: Record<string, string> = {
+          'pending': 'Pending',
+          'created': 'Created',
+          'skipped': 'Skipped',
+        };
+        const statusColors: Record<string, { bg: string; text: string }> = {
+          'pending': { bg: notionColors.warning?.background || '#FFF4E5', text: notionColors.warning?.text || '#B7791F' },
+          'created': { bg: notionColors.chip.success, text: notionColors.chip.successText },
+          'skipped': { bg: notionColors.error.background, text: notionColors.error.text },
+        };
+        const colors = statusColors[event.status] || statusColors['skipped'];
+        return (
+          <Chip 
+            label={statusLabels[event.status] || 'Unknown'} 
+            size="small"
+            sx={{ 
+              backgroundColor: colors.bg,
+              color: colors.text,
+              maxWidth: '100%',
+              fontWeight: 500,
+              '& .MuiChip-label': {
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }
+            }} 
+          />
+        );
+      },
     },
     {
       header: 'Location',
@@ -398,7 +452,9 @@ export default function Converter({ authenticated }: ConverterProps) {
               getItemId={(task) => task.id}
               onOpen={handleOpenTasks}
               onDelete={handleDeleteTasks}
-              getItemLink={(task) => task.task_link}
+              onConfirm={handleConfirmTasks}
+              getItemLink={(task) => task.status === 'created' ? task.task_link : undefined}
+              getItemStatus={(task) => task.status}
             />
           </TabPanel>
 
@@ -413,7 +469,9 @@ export default function Converter({ authenticated }: ConverterProps) {
               getItemId={(event) => event.id}
               onOpen={handleOpenEvents}
               onDelete={handleDeleteEvents}
-              getItemLink={(event) => event.html_link}
+              onConfirm={handleConfirmEvents}
+              getItemLink={(event) => event.status === 'created' ? event.html_link : undefined}
+              getItemStatus={(event) => event.status}
             />
           </TabPanel>
               </Box>

@@ -34,12 +34,26 @@ export function useTasks() {
     }
   }, []);
 
+  const confirmTasks = useCallback(async (taskIds: number[]) => {
+    setError(null);
+    try {
+      await api.tasks.confirmTasks(taskIds);
+      // Reload tasks to get updated status
+      await loadTasks();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to confirm tasks';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [loadTasks]);
+
   return {
     tasks,
     loading,
     error,
     loadTasks,
     deleteTasks,
+    confirmTasks,
   };
 }
 

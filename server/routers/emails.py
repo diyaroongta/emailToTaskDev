@@ -5,9 +5,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 from server.utils import get_gmail_service, get_current_user, message_to_payload, require_auth
 from server.config import DEFAULT_PROVIDER, TASKS_LIST_TITLE
-from server.db import db_session, Email, Task, CalendarEvent
+from server.db import db_session, Email, Task, CalendarEvent, UserSettings
 from server.ml import ml_decide
 from server.providers.google_tasks import create_task as create_google_task, GoogleTasksError
+from sqlalchemy import select
 
 emails_bp = Blueprint('emails', __name__)
 logger = logging.getLogger(__name__)
@@ -276,6 +277,14 @@ def fetch_emails():
     already_processed_count = 0
     considered = 0
 
+    # Get auto_generate setting
+    with db_session() as s:
+        stmt = select(UserSettings).where(UserSettings.user_id == user.id)
+        user_settings = s.execute(stmt).scalar_one_or_none()
+        auto_generate = user_settings.auto_generate if user_settings and user_settings.auto_generate is not None else True
+
+    logger.info(f"Auto-generate setting: {auto_generate}")
+
     with db_session() as s:
         for message_id in ids:
             considered += 1
@@ -327,65 +336,130 @@ def fetch_emails():
             calendar_event = None
             if meeting_info and meeting_info.get("is_meeting"):
                 logger.info(
-                    f"Creating calendar event - Email ID: {message_id_short} | "
+                    f"Processing calendar event - Email ID: {message_id_short} | "
                     f"Subject: '{subject}' | "
-                    f"Meeting Summary: '{meeting_info.get('summary', 'N/A')}'"
+                    f"Meeting Summary: '{meeting_info.get('summary', 'N/A')}' | "
+                    f"Auto-generate: {auto_generate}"
                 )
-                calendar_event = create_google_calendar_event(meeting_info, client_timezone)
-                if calendar_event:
+                
+                if auto_generate:
+                    # Create calendar event in Google Calendar
+                    calendar_event = create_google_calendar_event(meeting_info, client_timezone)
+                    if calendar_event:
+                        logger.info(
+                            f"Calendar event created successfully - Email ID: {message_id_short} | "
+                            f"Event ID: {calendar_event.get('id')} | "
+                            f"Summary: '{calendar_event.get('summary', 'N/A')}'"
+                        )
+                        # Save calendar event to database
+                        start_dt = None
+                        end_dt = None
+                        event_timezone_str = calendar_event.get("start", {}).get("timeZone")
+                        event_tz = resolve_client_timezone(event_timezone_str) if event_timezone_str else timezone.utc
+                        
+                        if calendar_event.get("start", {}).get("dateTime"):
+                            try:
+                                parsed_start = dateutil_parser.isoparse(calendar_event["start"]["dateTime"])
+                                if parsed_start.tzinfo is None:
+                                    parsed_start = parsed_start.replace(tzinfo=event_tz)
+                                start_dt = parsed_start.astimezone(timezone.utc)
+                            except Exception:
+                                pass
+                        if calendar_event.get("end", {}).get("dateTime"):
+                            try:
+                                parsed_end = dateutil_parser.isoparse(calendar_event["end"]["dateTime"])
+                                if parsed_end.tzinfo is None:
+                                    parsed_end = parsed_end.replace(tzinfo=event_tz)
+                                end_dt = parsed_end.astimezone(timezone.utc)
+                            except Exception:
+                                pass
+                        
+                        cal_event = CalendarEvent(
+                            user_id=user.id,
+                            email_id=email_row.id,
+                            google_event_id=calendar_event.get("id"),
+                            summary=calendar_event.get("summary", "Meeting"),
+                            location=calendar_event.get("location"),
+                            start_datetime=start_dt,
+                            end_datetime=end_dt,
+                            html_link=calendar_event.get("htmlLink"),
+                            provider_metadata=calendar_event,
+                            status="created",
+                        )
+                        s.add(cal_event)
+                        
+                        created_calendar_events.append({
+                            "summary": calendar_event.get("summary", "Meeting"),
+                            "htmlLink": calendar_event.get("htmlLink"),
+                            "start": calendar_event.get("start", {}).get("dateTime"),
+                            "location": calendar_event.get("location"),
+                        })
+                    else:
+                        logger.warning(
+                            f"Calendar event creation failed - Email ID: {message_id_short} | "
+                            f"Subject: '{subject}' | "
+                            f"Meeting Summary: '{meeting_info.get('summary', 'N/A')}'"
+                        )
+                else:
+                    # Create pending calendar event (don't create in Google Calendar yet)
                     logger.info(
-                        f"Calendar event created successfully - Email ID: {message_id_short} | "
-                        f"Event ID: {calendar_event.get('id')} | "
-                        f"Summary: '{calendar_event.get('summary', 'N/A')}'"
+                        f"Creating pending calendar event - Email ID: {message_id_short} | "
+                        f"Subject: '{subject}' | "
+                        f"Meeting Summary: '{meeting_info.get('summary', 'N/A')}'"
                     )
-                    # Save calendar event to database
+                    
+                    # Prepare event data for later creation
                     start_dt = None
                     end_dt = None
-                    event_timezone_str = calendar_event.get("start", {}).get("timeZone")
-                    event_tz = resolve_client_timezone(event_timezone_str) if event_timezone_str else timezone.utc
+                    user_tz = resolve_client_timezone(client_timezone)
                     
-                    if calendar_event.get("start", {}).get("dateTime"):
+                    if meeting_info.get("start_datetime"):
                         try:
-                            parsed_start = dateutil_parser.isoparse(calendar_event["start"]["dateTime"])
-                            if parsed_start.tzinfo is None:
-                                parsed_start = parsed_start.replace(tzinfo=event_tz)
-                            start_dt = parsed_start.astimezone(timezone.utc)
+                            parsed_start = parse_datetime_with_timezone(meeting_info["start_datetime"], user_tz)
+                            if parsed_start:
+                                start_dt = parsed_start.astimezone(timezone.utc)
                         except Exception:
                             pass
-                    if calendar_event.get("end", {}).get("dateTime"):
+                    
+                    if meeting_info.get("end_datetime"):
                         try:
-                            parsed_end = dateutil_parser.isoparse(calendar_event["end"]["dateTime"])
-                            if parsed_end.tzinfo is None:
-                                parsed_end = parsed_end.replace(tzinfo=event_tz)
-                            end_dt = parsed_end.astimezone(timezone.utc)
+                            parsed_end = parse_datetime_with_timezone(meeting_info["end_datetime"], user_tz)
+                            if parsed_end:
+                                end_dt = parsed_end.astimezone(timezone.utc)
                         except Exception:
                             pass
+                    
+                    # Create pending event with metadata for later creation
+                    pending_event_metadata = {
+                        "summary": meeting_info.get("summary", "Meeting"),
+                        "location": meeting_info.get("location"),
+                        "start_datetime": meeting_info.get("start_datetime"),
+                        "end_datetime": meeting_info.get("end_datetime"),
+                        "participants": meeting_info.get("participants", []),
+                        "client_timezone": client_timezone,
+                    }
                     
                     cal_event = CalendarEvent(
                         user_id=user.id,
                         email_id=email_row.id,
-                        google_event_id=calendar_event.get("id"),
-                        summary=calendar_event.get("summary", "Meeting"),
-                        location=calendar_event.get("location"),
+                        google_event_id=None,
+                        summary=meeting_info.get("summary", "Meeting"),
+                        location=meeting_info.get("location"),
                         start_datetime=start_dt,
                         end_datetime=end_dt,
-                        html_link=calendar_event.get("htmlLink"),
-                        provider_metadata=calendar_event,
+                        html_link=None,
+                        provider_metadata=pending_event_metadata,
+                        status="pending",
                     )
                     s.add(cal_event)
                     
                     created_calendar_events.append({
-                        "summary": calendar_event.get("summary", "Meeting"),
-                        "htmlLink": calendar_event.get("htmlLink"),
-                        "start": calendar_event.get("start", {}).get("dateTime"),
-                        "location": calendar_event.get("location"),
+                        "summary": meeting_info.get("summary", "Meeting"),
+                        "htmlLink": None,
+                        "start": meeting_info.get("start_datetime"),
+                        "location": meeting_info.get("location"),
+                        "status": "pending",
                     })
-                else:
-                    logger.warning(
-                        f"Calendar event creation failed - Email ID: {message_id_short} | "
-                        f"Subject: '{subject}' | "
-                        f"Meeting Summary: '{meeting_info.get('summary', 'N/A')}'"
-                    )
             
             # Skip if ML decides not to create task
             if not should_create:
@@ -422,37 +496,81 @@ def fetch_emails():
                 already_processed_count += 1
                 continue
 
-            try:
-                task = dispatch_task(provider, payload)
-                task_id = task.get("id") if isinstance(task, dict) else None
-                task_title = task.get("title") if isinstance(task, dict) else subject
-                
+            if auto_generate:
+                # Create task in Google Tasks immediately
+                try:
+                    task = dispatch_task(provider, payload)
+                    task_id = task.get("id") if isinstance(task, dict) else None
+                    task_title = task.get("title") if isinstance(task, dict) else subject
+                    
+                    logger.info(
+                        f"Task created successfully - Email ID: {message_id_short} | "
+                        f"Subject: '{subject}' | "
+                        f"Task ID: {task_id} | "
+                        f"Task Title: '{task_title}' | "
+                        f"Provider: {provider} | "
+                        f"Confidence: {confidence:.2f}"
+                    )
+                    
+                    # Record task in DB with created status
+                    t = Task(
+                        user_id=user.id,
+                        email_id=email_row.id,
+                        provider=provider,
+                        provider_task_id=(task.get("id") if isinstance(task, dict) else None),
+                        provider_metadata=task if isinstance(task, dict) else None,
+                        status="created",
+                    )
+                    s.add(t)
+                    
+                    created_tasks.append({
+                        "message_id": message_id,
+                        "provider": provider,
+                        "task": task,
+                    })
+                except Exception as err:
+                    logger.error(
+                        f"Task creation FAILED - Email ID: {message_id_short} | "
+                        f"Subject: '{subject}' | "
+                        f"Provider: {provider} | "
+                        f"Error: {str(err)}"
+                    )
+                    return jsonify({"error": f"Error creating task: {str(err)}"}), 400
+            else:
+                # Create pending task (don't create in Google Tasks yet)
                 logger.info(
-                    f"Task created successfully - Email ID: {message_id_short} | "
+                    f"Creating pending task - Email ID: {message_id_short} | "
                     f"Subject: '{subject}' | "
-                    f"Task ID: {task_id} | "
-                    f"Task Title: '{task_title}' | "
                     f"Provider: {provider} | "
                     f"Confidence: {confidence:.2f}"
                 )
-            except Exception as err:
-                logger.error(
-                    f"Task creation FAILED - Email ID: {message_id_short} | "
-                    f"Subject: '{subject}' | "
-                    f"Provider: {provider} | "
-                    f"Error: {str(err)}"
+                
+                # Store task metadata for later creation
+                pending_task_metadata = {
+                    "title": subject,
+                    "notes": notes,
+                    "due": due,
+                    "payload": payload,  # Store full payload for later creation
+                }
+                
+                t = Task(
+                    user_id=user.id,
+                    email_id=email_row.id,
+                    provider=provider,
+                    provider_task_id=None,
+                    provider_metadata=pending_task_metadata,
+                    status="pending",
                 )
-                return jsonify({"error": f"Error creating task: {str(err)}"}), 400
-
-            # Record task in DB
-            t = Task(
-                user_id=user.id,
-                email_id=email_row.id,
-                provider=provider,
-                provider_task_id=(task.get("id") if isinstance(task, dict) else None),
-                provider_metadata=task if isinstance(task, dict) else None,
-            )
-            s.add(t)
+                s.add(t)
+                
+                created_tasks.append({
+                    "message_id": message_id,
+                    "provider": provider,
+                    "task": {
+                        "title": subject,
+                        "status": "pending",
+                    },
+                })
 
             # Mark email processed
             now = datetime.now(timezone.utc)
@@ -460,12 +578,6 @@ def fetch_emails():
                 email_row.first_processed_at = now
             email_row.last_processed_at = now
             email_row.processed = True
-
-            created_tasks.append({
-                "message_id": message_id,
-                "provider": provider,
-                "task": task,
-            })
 
     result = {
         "processed": len(created_tasks),

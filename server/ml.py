@@ -130,7 +130,6 @@ def classify_and_generate_task(
     sender = payload.get("sender", "Unknown")
     subject = email_content.get("subject", "(No subject)")
     logger.info(f"Processing email for classification - Subject: '{subject}', Sender: '{sender}'")
-    
     prompt = f"""
 You are an intelligent email assistant that helps users manage their tasks and meetings by analyzing emails.
 

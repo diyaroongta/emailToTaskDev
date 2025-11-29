@@ -45,6 +45,13 @@ export const notionColors = {
     text: '#DC2626',
     border: '#FECACA',
   },
+  // Warning colors
+  warning: {
+    background: '#FFF4E5',
+    text: '#B7791F',
+    main: '#F5A623',
+    dark: '#D68910',
+  },
   // Shadow
   shadow: {
     dialog: 'rgba(0, 0, 0, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.05) 0px 3px 6px, rgba(0, 0, 0, 0.1) 0px 9px 24px',
