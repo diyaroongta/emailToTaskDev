@@ -5,7 +5,6 @@ import {
   Typography,
   Snackbar,
   Alert,
-  Paper,
   CircularProgress,
   TextField,
   Chip,
@@ -122,17 +121,7 @@ export default function Settings({ authenticated }: SettingsProps) {
           description="Configure default preferences for processing emails."
         />
 
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 3, 
-            border: `1.5px solid ${notionColors.border.default}`,
-            borderRadius: 3,
-            backgroundColor: '#FFFFFF',
-            boxShadow: notionColors.shadow.card,
-          }}
-        >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 6 }}>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2 }}>
               <MaxEmails
                 value={settings.max}
@@ -317,7 +306,6 @@ export default function Settings({ authenticated }: SettingsProps) {
               </Button>
             </Box>
           </Box>
-        </Paper>
       </Box>
 
       <Snackbar

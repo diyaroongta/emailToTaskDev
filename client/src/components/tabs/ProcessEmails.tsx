@@ -2,13 +2,11 @@ import {
   Box,
   Button,
   CircularProgress,
-  Paper,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
 } from '@mui/icons-material';
 import type { FetchEmailsParams } from '../../apis/api';
-import { notionColors } from '../../theme';
 import MaxEmails from '../filter-inputs/MaxEmails';
 import TimeWindow from '../filter-inputs/TimeWindow';
 import CustomQuery from '../filter-inputs/CustomQuery';
@@ -27,18 +25,8 @@ export default function ProcessEmails({
   loading,
 }: ProcessEmailsProps) {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 3,
-        border: `1.5px solid ${notionColors.border.default}`,
-        borderRadius: 3,
-        backgroundColor: '#FFFFFF',
-        boxShadow: notionColors.shadow.card,
-      }}
-    >
     <Box component="form" onSubmit={onSubmit}>
-      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%', flexWrap: 'nowrap', mb: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%', flexWrap: 'nowrap' }}>
         <MaxEmails
           value={formData.max}
           onChange={(max) => onFormDataChange({ ...formData, max })}
@@ -57,7 +45,7 @@ export default function ProcessEmails({
         />
       </Box>
 
-      <Box sx={{ mt: 3, display: 'flex', gap: 2, width: '100%' }}>
+      <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
         <Button
           type="submit"
           variant="contained"
@@ -66,7 +54,7 @@ export default function ProcessEmails({
           sx={{
               px: 3,
               py: 1.25,
-              borderRadius: '8px',
+              borderRadius: '3px',
               fontSize: '14px',
           }}
         >
@@ -74,7 +62,6 @@ export default function ProcessEmails({
         </Button>
       </Box>
     </Box>
-    </Paper>
   );
 }
 

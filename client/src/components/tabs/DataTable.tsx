@@ -125,6 +125,10 @@ export default function DataTable<T>({
     item => selectedItems.has(getItemId(item)) && getItemStatus && getItemStatus(item) === 'pending'
   );
 
+  const hasOpenableSelection = selectedItems.size > 0 && getItemLink && data.some(
+    item => selectedItems.has(getItemId(item)) && getItemLink(item)
+  );
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
@@ -266,35 +270,33 @@ export default function DataTable<T>({
         <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
           {onConfirm && hasPendingSelection && (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={isConfirming ? <CircularProgress size={20} /> : <CheckCircleIcon />}
               onClick={handleConfirm}
               disabled={isConfirming || isDeleting}
               sx={{
-                fontSize: '14px',
                 px: 3,
                 py: 1.25,
-                borderRadius: '8px',
-                backgroundColor: notionColors.warning?.main || '#F5A623',
+                borderColor: notionColors.warning?.main || '#F5A623',
+                color: notionColors.warning?.main || '#F5A623',
                 '&:hover': {
-                  backgroundColor: notionColors.warning?.dark || '#D68910',
+                  borderColor: notionColors.warning?.dark || '#D68910',
+                  backgroundColor: notionColors.warning?.background || '#FFF4E5',
                 },
               }}
             >
               {isConfirming ? 'Confirming...' : `Confirm (${data.filter(item => selectedItems.has(getItemId(item)) && getItemStatus && getItemStatus(item) === 'pending').length})`}
             </Button>
           )}
-          {onOpen && getItemLink && (
+          {onOpen && getItemLink && hasOpenableSelection && (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={<OpenInNewIcon />}
               onClick={handleOpen}
               disabled={isDeleting || isConfirming}
               sx={{
-                fontSize: '14px',
                 px: 3,
                 py: 1.25,
-                borderRadius: '8px',
               }}
             >
               Open ({data.filter(item => selectedItems.has(getItemId(item)) && getItemLink && getItemLink(item)).length})
@@ -302,15 +304,19 @@ export default function DataTable<T>({
           )}
           {onDelete && (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={isDeleting ? <CircularProgress size={20} /> : <DeleteIcon />}
               onClick={handleDelete}
               disabled={isDeleting || isConfirming}
               sx={{
-                fontSize: '14px',
                 px: 3,
                 py: 1.25,
-                borderRadius: '8px',
+                borderColor: notionColors.error.text,
+                color: notionColors.error.text,
+                '&:hover': {
+                  borderColor: '#B91C1C',
+                  backgroundColor: notionColors.error.background,
+                },
               }}
             >
               {`Delete (${selectedItems.size})`}

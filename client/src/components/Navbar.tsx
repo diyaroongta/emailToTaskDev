@@ -1,6 +1,7 @@
-import { Link, useLocation } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
-import { Email as EmailIcon, Settings as SettingsIcon, AutoAwesome as ConverterIcon, Google as GoogleIcon } from '@mui/icons-material';
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AppBar, Toolbar, Typography, Button, Box, Avatar, Menu, MenuItem, IconButton } from '@mui/material';
+import { Email as EmailIcon, Settings as SettingsIcon, AutoAwesome as ConverterIcon, Google as GoogleIcon, Logout as LogoutIcon, AccountCircle as AccountCircleIcon } from '@mui/icons-material';
 import { api } from '../apis/api';
 import { notionColors } from '../theme';
 
@@ -11,7 +12,27 @@ interface NavbarProps {
 
 export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  const handleProfileClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleMenuItemClick = (path?: string) => {
+    handleMenuClose();
+    if (path) {
+      navigate(path);
+    }
+  };
+
   const handleLogout = async () => {
+    handleMenuClose();
     await api.logout();
     onAuthChange();
   };
@@ -47,7 +68,7 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
             component="div" 
             sx={{ 
               fontWeight: 600,
-              fontSize: '18px',
+              fontSize: '24px',
               letterSpacing: '-0.01em',
               color: notionColors.primary.main,
             }}
@@ -59,42 +80,97 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           {authenticated ? (
             <>
-              <Button
-                component={Link}
-                to="/converter"
-                variant="text"
-                startIcon={<ConverterIcon />}
+              <IconButton
+                onClick={handleProfileClick}
                 sx={{
-                  color: location.pathname === '/converter' ? notionColors.primary.main : notionColors.text.secondary,
+                  padding: 0,
                   '&:hover': {
-                    backgroundColor: notionColors.background.hover,
-                    color: notionColors.primary.main,
+                    backgroundColor: 'transparent',
                   },
                 }}
               >
-                Converter
-              </Button>
-              <Button
-                component={Link}
-                to="/settings"
-                variant="text"
-                startIcon={<SettingsIcon />}
+                <Avatar
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    backgroundColor: 'transparent',
+                    color: notionColors.text.secondary,
+                  }}
+                >
+                  <AccountCircleIcon sx={{ fontSize: 36 }} />
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleMenuClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
                 sx={{
-                  color: location.pathname === '/settings' ? notionColors.primary.main : notionColors.text.secondary,
-                  '&:hover': {
-                    backgroundColor: notionColors.background.hover,
-                    color: notionColors.primary.main,
+                  '& .MuiPaper-root': {
+                    borderRadius: '8px',
+                    border: `1px solid ${notionColors.border.default}`,
+                    boxShadow: notionColors.shadow.dialog,
+                    mt: 1,
+                    minWidth: 180,
                   },
                 }}
               >
-                Settings
-              </Button>
-              <Button
-                onClick={handleLogout}
-                variant="text"
-              >
-                Logout
-              </Button>
+                <MenuItem
+                  onClick={() => handleMenuItemClick('/converter')}
+                  selected={location.pathname === '/converter'}
+                  sx={{
+                    fontSize: '14px',
+                    py: 1.5,
+                    '&.Mui-selected': {
+                      backgroundColor: notionColors.background.hover,
+                      '&:hover': {
+                        backgroundColor: notionColors.background.hover,
+                      },
+                    },
+                  }}
+                >
+                  <ConverterIcon sx={{ fontSize: 18, mr: 1.5, color: notionColors.text.secondary }} />
+                  Converter
+                </MenuItem>
+                <MenuItem
+                  onClick={() => handleMenuItemClick('/settings')}
+                  selected={location.pathname === '/settings'}
+                  sx={{
+                    fontSize: '14px',
+                    py: 1.5,
+                    '&.Mui-selected': {
+                      backgroundColor: notionColors.background.hover,
+                      '&:hover': {
+                        backgroundColor: notionColors.background.hover,
+                      },
+                    },
+                  }}
+                >
+                  <SettingsIcon sx={{ fontSize: 18, mr: 1.5, color: notionColors.text.secondary }} />
+                  Settings
+                </MenuItem>
+                <MenuItem
+                  onClick={handleLogout}
+                  sx={{
+                    fontSize: '14px',
+                    py: 1.5,
+                    color: notionColors.error.text,
+                    '&:hover': {
+                      backgroundColor: notionColors.error.background,
+                    },
+                  }}
+                >
+                  <LogoutIcon sx={{ fontSize: 18, mr: 1.5 }} />
+                  Logout
+                </MenuItem>
+              </Menu>
             </>
           ) : (
             <Button
@@ -105,7 +181,7 @@ export default function Navbar({ authenticated, onAuthChange }: NavbarProps) {
                 fontSize: '14px',
                 px: 2,
                 py: 0.75,
-                borderRadius: '8px',
+                borderRadius: '3px',
                 minWidth: 'auto',
               }}
             >

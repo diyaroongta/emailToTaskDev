@@ -99,7 +99,7 @@ export default function Home({ authenticated }: HomeProps) {
             fontSize: '15px',
             px: 4,
             py: 1.5,
-            borderRadius: '8px',
+            borderRadius: '3px',
           }}
         >
           Get Started
