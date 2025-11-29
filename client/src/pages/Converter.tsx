@@ -174,6 +174,26 @@ export default function Converter({ authenticated }: ConverterProps) {
       },
     },
     {
+      header: 'Category',
+      render: (task) => (
+        <Chip 
+          label={task.category || 'Uncategorized'} 
+          size="small"
+          variant="outlined"
+          sx={{ 
+            borderColor: notionColors.border.default,
+            color: task.category ? notionColors.text.primary : notionColors.text.disabled,
+            maxWidth: '100%',
+            '& .MuiChip-label': {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          }} 
+        />
+      ),
+    },
+    {
       header: 'Sender',
       render: (task) => (
         <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '14px', color: notionColors.text.secondary }}>
@@ -255,6 +275,26 @@ export default function Converter({ authenticated }: ConverterProps) {
           />
         );
       },
+    },
+    {
+      header: 'Category',
+      render: (event) => (
+        <Chip 
+          label={event.category || 'Uncategorized'} 
+          size="small"
+          variant="outlined"
+          sx={{ 
+            borderColor: notionColors.border.default,
+            color: event.category ? notionColors.text.primary : notionColors.text.disabled,
+            maxWidth: '100%',
+            '& .MuiChip-label': {
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          }} 
+        />
+      ),
     },
     {
       header: 'Location',

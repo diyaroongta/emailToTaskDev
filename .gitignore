@@ -6,3 +6,4 @@ processed.json
 client_secret.json
 node_modules
 app.log
+taskflow.db

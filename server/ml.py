@@ -79,6 +79,8 @@ def classify_and_generate_task(
     payload: Dict[str, Any],
     api_key: Optional[str] = None,
     model: str = "gpt-4o-mini",
+    task_categories: list[str] | None = None,
+    calendar_categories: list[str] | None = None,
 ) -> Dict[str, Any]:
     """
     Main function to classify email and generate task details and meetings.
@@ -95,7 +97,12 @@ def classify_and_generate_task(
         - title: str - generated task title
         - notes: str - generated task description/body
         - reasoning: str - explanation of classification decision
+        - title: str - generated task title
+        - notes: str - generated task description/body
+        - reasoning: str - explanation of classification decision
+        - category: str | None - selected task category
         - meeting: dictoniary indicating if it should create a meeting, location, start and end time and participants.
+          - category: str | None - selected calendar category
     """
     subject = payload.get("subject", "(No subject)")
     
@@ -129,9 +136,16 @@ def classify_and_generate_task(
     email_content = prepare_email_content(payload)
     sender = payload.get("sender", "Unknown")
     subject = email_content.get("subject", "(No subject)")
+    
+    task_cats_str = ", ".join(f"'{c}'" for c in (task_categories or []))
+    cal_cats_str = ", ".join(f"'{c}'" for c in (calendar_categories or []))
+    
     logger.info(f"Processing email for classification - Subject: '{subject}', Sender: '{sender}'")
     prompt = f"""
 You are an intelligent email assistant that helps users manage their tasks and meetings by analyzing emails.
+
+Available Task Categories: [{task_cats_str}]
+Available Calendar Categories: [{cal_cats_str}]
 
 Instructions:
 
@@ -140,10 +154,11 @@ Instructions:
    b) a meeting invitation
 
 2. If it's a task:
-   - Generate a concise task title (3-8 words)
-   - Generate detailed task notes (2-4 sentences)
-   - Provide a confidence score (0.0-1.0)
-   - Explain your reasoning
+    - Generate a concise task title (3-8 words)
+    - Generate detailed task notes (2-4 sentences)
+    - Provide a confidence score (0.0-1.0)
+    - Select the most appropriate category from the Available Task Categories list (or null if none fit)
+    - Explain your reasoning
 
 
 3. If it's a meeting:
@@ -151,9 +166,10 @@ Instructions:
    - Extract meeting details:
        * summary: meeting title
        * location: physical or virtual link (leave empty if unknown)
-       * start_datetime: RFC3339 UTC start time (leave empty if unknown)
-       * end_datetime: RFC3339 UTC end time (leave empty if unknown)
-       * participants: list of email addresses (leave empty list if unknown)
+        * start_datetime: RFC3339 UTC start time (leave empty if unknown)
+        * end_datetime: RFC3339 UTC end time (leave empty if unknown)
+        * participants: list of email addresses (leave empty list if unknown)
+        * category: Select the most appropriate category from the Available Calendar Categories list (or null if none fit)
    - Use context clues like "meeting", "invite", "agenda", "call", "Zoom", "conference", "link"
 
 Email Details:
@@ -188,6 +204,7 @@ Respond ONLY with valid JSON in this exact format:
   "confidence": 0.0-1.0,
   "title": "Concise task title (3-8 words)",
   "notes": "Detailed task description with key information",
+  "category": "Selected task category or null",
   "reasoning": "Brief explanation of decision",
   "meeting": {{
       "is_meeting": true/false,
@@ -195,7 +212,10 @@ Respond ONLY with valid JSON in this exact format:
       "location": "",
       "start_datetime": "",
       "end_datetime": "",
-      "participants": []
+      "start_datetime": "",
+      "end_datetime": "",
+      "participants": [],
+      "category": "Selected calendar category or null"
   }}
 }}
 
@@ -261,6 +281,7 @@ For task notes:
             "confidence": confidence,
             "title": title,
             "notes": str(result.get("notes", email_content["body"] or email_content["snippet"]))[:2000],
+            "category": result.get("category"),
             "reasoning": reasoning,
             "meeting": meeting_info,
         }
@@ -294,6 +315,8 @@ For task notes:
 
 def ml_decide(
     payload: Dict[str, Any],
+    task_categories: list[str] | None = None,
+    calendar_categories: list[str] | None = None,
 ) -> Dict[str, Any]:
     """
     Main entry point for email classification.
@@ -302,7 +325,13 @@ def ml_decide(
     api_key = os.getenv("OPENAI_API_KEY")
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
-    result = classify_and_generate_task(payload, api_key=api_key, model=model)
+    result = classify_and_generate_task(
+        payload, 
+        api_key=api_key, 
+        model=model,
+        task_categories=task_categories,
+        calendar_categories=calendar_categories
+    )
     
     meeting_info = result.get("meeting")
     if meeting_info:
