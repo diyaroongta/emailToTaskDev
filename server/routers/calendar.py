@@ -1,14 +1,13 @@
 from flask import Blueprint, session, jsonify, request
-from server.utils import get_current_user, get_calendar_service
+from server.utils import get_current_user, get_calendar_service, require_auth
 from server.db import db_session, CalendarEvent, Email
 from sqlalchemy import select
 
 calendar_bp = Blueprint('calendar', __name__)
 
 @calendar_bp.route("/calendar-events/all")
+@require_auth
 def api_all_calendar_events():
-    if "credentials" not in session:
-        return jsonify({"error": "Not authenticated"}), 401
 
     user = get_current_user()
     if not user:
@@ -50,10 +49,9 @@ def api_all_calendar_events():
 
 
 @calendar_bp.route("/calendar-events", methods=["DELETE"])
+@require_auth
 def delete_calendar_events():
     """Delete multiple calendar events from Google Calendar and the database."""
-    if "credentials" not in session:
-        return jsonify({"error": "Not authenticated"}), 401
 
     user = get_current_user()
     if not user:

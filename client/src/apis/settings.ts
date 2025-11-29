@@ -5,6 +5,7 @@ export class SettingsService extends BaseApiService {
   async getSettings(): Promise<Settings> {
     const response = await fetch(`${this.baseUrl}/settings`, {
       credentials: 'include',
+      headers: this.getHeaders(),
     });
     
     return this.handleResponse<Settings>(response, 'Failed to fetch settings');
@@ -14,9 +15,7 @@ export class SettingsService extends BaseApiService {
     const response = await fetch(`${this.baseUrl}/settings`, {
       method: 'PUT',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(settings),
     });
     

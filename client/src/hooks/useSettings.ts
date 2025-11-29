@@ -4,6 +4,9 @@ import { api, type Settings } from '../apis/api';
 const DEFAULT_SETTINGS: Settings = {
   max: 10,
   window: '1d',
+  task_categories: [],
+  calendar_categories: [],
+  auto_generate: true,
 };
 
 export function useSettings(authenticated: boolean) {

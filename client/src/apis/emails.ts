@@ -15,10 +15,7 @@ export class EmailService extends BaseApiService {
     const response = await fetch(`${this.baseUrl}/fetch-emails?${queryParams}`, {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
+      headers: this.getHeaders(),
     });
 
     return this.handleResponse<FetchEmailsResponse>(response, 'Failed to fetch emails');

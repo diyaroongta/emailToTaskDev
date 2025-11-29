@@ -3,7 +3,7 @@ from datetime import datetime, timezone, timedelta
 from dateutil import parser as dateutil_parser
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
-from server.utils import get_gmail_service, get_current_user, message_to_payload
+from server.utils import get_gmail_service, get_current_user, message_to_payload, require_auth
 from server.config import DEFAULT_PROVIDER, TASKS_LIST_TITLE
 from server.db import db_session, Email, Task, CalendarEvent
 from server.ml import ml_decide
@@ -223,6 +223,7 @@ def create_google_calendar_event(meeting: dict, client_timezone: str | None):
         return None
 
 @emails_bp.route("/fetch-emails", methods=["POST", "GET"])
+@require_auth
 def fetch_emails():
     logger.info("Fetch emails request received")
     service = get_gmail_service()

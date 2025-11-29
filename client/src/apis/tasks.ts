@@ -5,6 +5,7 @@ export class TaskService extends BaseApiService {
   async getAllTasks(): Promise<{ tasks: Task[]; total: number }> {
     const response = await fetch(`${this.baseUrl}/tasks/all`, {
       credentials: 'include',
+      headers: this.getHeaders(),
     });
     
     return this.handleResponse<{ tasks: Task[]; total: number }>(response, 'Failed to fetch tasks');
@@ -14,9 +15,7 @@ export class TaskService extends BaseApiService {
     const response = await fetch(`${this.baseUrl}/tasks`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify({ task_ids: taskIds }),
     });
     

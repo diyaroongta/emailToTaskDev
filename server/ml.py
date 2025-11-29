@@ -78,7 +78,7 @@ def prepare_email_content(payload: Dict[str, Any]) -> Dict[str, str]:
 def classify_and_generate_task(
     payload: Dict[str, Any],
     api_key: Optional[str] = None,
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-4o-mini",
 ) -> Dict[str, Any]:
     """
     Main function to classify email and generate task details and meetings.
@@ -129,7 +129,6 @@ def classify_and_generate_task(
     email_content = prepare_email_content(payload)
     sender = payload.get("sender", "Unknown")
     subject = email_content.get("subject", "(No subject)")
-    
     logger.info(f"Processing email for classification - Subject: '{subject}', Sender: '{sender}'")
     
     prompt = f"""
@@ -146,6 +145,7 @@ Instructions:
    - Generate detailed task notes (2-4 sentences)
    - Provide a confidence score (0.0-1.0)
    - Explain your reasoning
+
 
 3. If it's a meeting:
    - Detect if it is indeed a meeting (is_meeting: true/false)
@@ -263,7 +263,7 @@ For task notes:
             "title": title,
             "notes": str(result.get("notes", email_content["body"] or email_content["snippet"]))[:2000],
             "reasoning": reasoning,
-            "meeting": meeting_info
+            "meeting": meeting_info,
         }
         
     except json.JSONDecodeError as e:
@@ -289,11 +289,13 @@ For task notes:
             "title": email_content["subject"],
             "notes": email_content["body"] or email_content["snippet"],
             "reasoning": f"API error: {str(e)}",
-            "meeting": result.get("meeting") if isinstance(result, dict) else None
+            "meeting": result.get("meeting") if isinstance(result, dict) else None,
         }
 
 
-def ml_decide(payload: Dict[str, Any]) -> Dict[str, Any]:
+def ml_decide(
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
     """
     Main entry point for email classification.
     Uses environment variables for configuration.

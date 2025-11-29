@@ -1,5 +1,5 @@
 from flask import Blueprint, session, jsonify, request
-from server.utils import get_current_user, get_tasks_service
+from server.utils import get_current_user, get_tasks_service, require_auth
 from server.db import db_session, Task, Email
 from server.providers.google_tasks import delete_task as delete_google_task, GoogleTasksError
 from sqlalchemy import select
@@ -7,9 +7,8 @@ from sqlalchemy import select
 tasks_bp = Blueprint('tasks', __name__)
 
 @tasks_bp.route("/tasks/all")
+@require_auth
 def api_all_results():
-    if "credentials" not in session:
-        return jsonify({"error": "Not authenticated"}), 401
 
     user = get_current_user()
     if not user:
@@ -52,10 +51,9 @@ def api_all_results():
 
 
 @tasks_bp.route("/tasks", methods=["DELETE"])
+@require_auth
 def delete_tasks():
     """Delete multiple tasks from Google Tasks and the database."""
-    if "credentials" not in session:
-        return jsonify({"error": "Not authenticated"}), 401
 
     user = get_current_user()
     if not user:

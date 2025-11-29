@@ -5,6 +5,7 @@ export class CalendarService extends BaseApiService {
   async getAllCalendarEvents(): Promise<{ events: CalendarEvent[]; total: number }> {
     const response = await fetch(`${this.baseUrl}/calendar-events/all`, {
       credentials: 'include',
+      headers: this.getHeaders(),
     });
     
     return this.handleResponse<{ events: CalendarEvent[]; total: number }>(
@@ -17,9 +18,7 @@ export class CalendarService extends BaseApiService {
     const response = await fetch(`${this.baseUrl}/calendar-events`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify({ event_ids: eventIds }),
     });
     

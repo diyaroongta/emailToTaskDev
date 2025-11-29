@@ -1,10 +1,11 @@
-import { BaseApiService } from './base';
+import { BaseApiService, removeToken } from './base';
 
 export class AuthService extends BaseApiService {
   async checkAuth(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/auth/status`, {
         credentials: 'include',
+        headers: this.getHeaders(),
       });
       
       if (!response.ok) {
@@ -36,10 +37,14 @@ export class AuthService extends BaseApiService {
       await fetch(`${this.baseUrl}/logout`, { 
         method: 'POST',
         credentials: 'include',
+        headers: this.getHeaders(),
       });
+      removeToken();
       window.location.href = '/';
     } catch (error) {
       console.error('Logout failed:', error);
+      removeToken();
+      window.location.href = '/';
     }
   }
 }

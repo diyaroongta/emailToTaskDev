@@ -1,8 +1,11 @@
 from __future__ import annotations
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Tuple
-from flask import session
+from functools import wraps
+from flask import session, request, jsonify
+import jwt
+from server.config import FLASK_SECRET
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from bs4 import BeautifulSoup
@@ -16,6 +19,54 @@ SCOPES = [
     "https://www.googleapis.com/auth/tasks",
     "https://www.googleapis.com/auth/calendar.events",
 ]
+
+def encode_jwt(user_email: str) -> str:
+    """Create a JWT token for a user."""
+    payload = {
+        "email": user_email,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, FLASK_SECRET, algorithm="HS256")
+
+def decode_jwt(token: str) -> dict | None:
+    """Decode and verify a JWT token."""
+    try:
+        return jwt.decode(token, FLASK_SECRET, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+def get_jwt_from_request() -> str | None:
+    """Extract JWT token from Authorization header."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        return None
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    return None
+
+def require_auth(f):
+    """Decorator to require JWT authentication."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = get_jwt_from_request()
+        if not token:
+            return jsonify({"error": "Not authenticated"}), 401
+        
+        payload = decode_jwt(token)
+        if not payload:
+            return jsonify({"error": "Invalid or expired token"}), 401
+        
+        user_email = payload.get("email")
+        if not user_email:
+            return jsonify({"error": "Invalid token"}), 401
+        
+        # Store user_email in request context for use in the route
+        request.user_email = user_email
+        return f(*args, **kwargs)
+    return decorated_function
 
 def _get_credentials():
     creds_info = session.get("credentials")
@@ -57,22 +108,11 @@ def get_or_create_user(session, email: str) -> User:
     return user
 
 def get_current_user() -> User | None:
-    """Get the current authenticated user from session or create if needed."""
-    if "user_email" not in session:
-        gmail_service = get_gmail_service()
-        if not gmail_service:
-            return None
-        try:
-            profile = gmail_service.users().getProfile(userId="me").execute()
-            user_email = profile.get("emailAddress")
-            if user_email:
-                session["user_email"] = user_email
-            else:
-                return None
-        except Exception as e:
-            return None
+    """Get the current authenticated user from JWT."""
+    if not hasattr(request, 'user_email'):
+        return None
     
-    user_email = session["user_email"]
+    user_email = request.user_email
     with db_session() as s:
         user = get_or_create_user(s, user_email)
         _ = user.id

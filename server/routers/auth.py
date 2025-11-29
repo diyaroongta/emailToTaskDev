@@ -2,7 +2,7 @@ from flask import Blueprint, session, jsonify, redirect, request
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from server.config import CLIENT_SECRETS_FILE, REDIRECT_URI, FRONTEND_URL
-from server.utils import SCOPES, get_or_create_user
+from server.utils import SCOPES, get_or_create_user, encode_jwt
 from server.db import db_session
 import os
 import logging
@@ -13,14 +13,28 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route("/auth/status")
 def auth_status():
-    is_authenticated = "credentials" in session
-    logger.info(f"Auth status check: authenticated={is_authenticated}, session_id={session.get('_id', 'none')}")
-    return jsonify({"authenticated": is_authenticated})
+    from server.utils import get_jwt_from_request, decode_jwt
+    token = get_jwt_from_request()
+    if not token:
+        return jsonify({"authenticated": False})
+    
+    payload = decode_jwt(token)
+    if not payload:
+        return jsonify({"authenticated": False})
+    
+    return jsonify({"authenticated": True})
 
 @auth_bp.route("/user")
 def user_info():
-    if "credentials" not in session:
+    from server.utils import get_jwt_from_request, decode_jwt
+    token = get_jwt_from_request()
+    if not token:
         return jsonify({"error": "Not authenticated"}), 401
+    
+    payload = decode_jwt(token)
+    if not payload:
+        return jsonify({"error": "Invalid or expired token"}), 401
+    
     return jsonify({"authenticated": True})
 
 @auth_bp.route("/authorize")
@@ -76,6 +90,10 @@ def oauth2callback():
                 with db_session() as s:
                     get_or_create_user(s, user_email)
                 logger.info(f"User authenticated: {user_email}")
+                
+                # Generate JWT token
+                jwt_token = encode_jwt(user_email)
+                session["jwt_token"] = jwt_token
         except Exception as e:
             logger.error(f"Error getting user profile: {e}")
         # Mark session as modified to ensure it's saved
@@ -83,7 +101,14 @@ def oauth2callback():
         frontend_url = os.getenv("FRONTEND_URL", FRONTEND_URL)
         logger.info(f"Redirecting to frontend: {frontend_url}")
         logger.info(f"Session after auth - has credentials: {'credentials' in session}, has user_email: {'user_email' in session}")
-        response = redirect(f"{frontend_url}/")
+        
+        # Redirect with JWT token as query parameter for frontend to pick up
+        jwt_token = session.get("jwt_token", "")
+        redirect_url = f"{frontend_url}/"
+        if jwt_token:
+            redirect_url = f"{frontend_url}/?token={jwt_token}"
+        
+        response = redirect(redirect_url)
         logger.info(f"Response headers - Set-Cookie present: {'Set-Cookie' in str(response.headers)}")
         return response
     except Exception as e:
@@ -93,5 +118,6 @@ def oauth2callback():
 def logout():
     session.pop("credentials", None)
     session.pop("user_email", None)
+    session.pop("jwt_token", None)
     return jsonify({"success": True, "message": "Logged out successfully"})
 

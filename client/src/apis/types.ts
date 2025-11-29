@@ -66,5 +66,8 @@ export type FetchEmailsResponse = {
 export type Settings = {
   max?: number;
   window: string;
+  task_categories?: string[];
+  calendar_categories?: string[];
+  auto_generate?: boolean;
 };
 
