@@ -267,7 +267,7 @@ export default function DataTable<T>({
           {onConfirm && hasPendingSelection && (
             <Button
               variant="contained"
-              startIcon={<CheckCircleIcon />}
+              startIcon={isConfirming ? <CircularProgress size={20} /> : <CheckCircleIcon />}
               onClick={handleConfirm}
               disabled={isConfirming || isDeleting}
               sx={{
@@ -303,7 +303,7 @@ export default function DataTable<T>({
           {onDelete && (
             <Button
               variant="contained"
-              startIcon={<DeleteIcon />}
+              startIcon={isDeleting ? <CircularProgress size={20} /> : <DeleteIcon />}
               onClick={handleDelete}
               disabled={isDeleting || isConfirming}
               sx={{
@@ -313,7 +313,7 @@ export default function DataTable<T>({
                 borderRadius: '8px',
               }}
             >
-              {isDeleting ? 'Deleting...' : `Delete (${selectedItems.size})`}
+              {`Delete (${selectedItems.size})`}
             </Button>
           )}
         </Box>
