@@ -282,6 +282,8 @@ def fetch_emails():
         stmt = select(UserSettings).where(UserSettings.user_id == user.id)
         user_settings = s.execute(stmt).scalar_one_or_none()
         auto_generate = user_settings.auto_generate if user_settings and user_settings.auto_generate is not None else True
+        task_categories = user_settings.task_categories if user_settings else []
+        calendar_categories = user_settings.calendar_categories if user_settings else []
 
     logger.info(f"Auto-generate setting: {auto_generate}")
 
@@ -315,7 +317,7 @@ def fetch_emails():
             )
 
             # ML Classification and Task Generation
-            ml_result = ml_decide(payload)
+            ml_result = ml_decide(payload, task_categories=task_categories, calendar_categories=calendar_categories)
             should_create = ml_result.get("should_create", True)
             confidence = ml_result.get("confidence", 0.5)
             reasoning = ml_result.get("reasoning", "")
@@ -385,6 +387,7 @@ def fetch_emails():
                             html_link=calendar_event.get("htmlLink"),
                             provider_metadata=calendar_event,
                             status="created",
+                            category=meeting_info.get("category"),
                         )
                         s.add(cal_event)
                         
@@ -450,6 +453,7 @@ def fetch_emails():
                         html_link=None,
                         provider_metadata=pending_event_metadata,
                         status="pending",
+                        category=meeting_info.get("category"),
                     )
                     s.add(cal_event)
                     
@@ -520,6 +524,7 @@ def fetch_emails():
                         provider_task_id=(task.get("id") if isinstance(task, dict) else None),
                         provider_metadata=task if isinstance(task, dict) else None,
                         status="created",
+                        category=ml_result.get("category"),
                     )
                     s.add(t)
                     
@@ -560,6 +565,7 @@ def fetch_emails():
                     provider_task_id=None,
                     provider_metadata=pending_task_metadata,
                     status="pending",
+                    category=ml_result.get("category"),
                 )
                 s.add(t)
                 

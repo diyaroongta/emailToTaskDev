@@ -19,6 +19,7 @@ export type Task = {
   task_link?: string;
   task_due?: string;
   status: 'pending' | 'created' | 'skipped';
+  category?: string;
 };
 
 export type CalendarEvent = {
@@ -34,6 +35,7 @@ export type CalendarEvent = {
   email_sender: string;
   email_received_at: string;
   status: 'pending' | 'created' | 'skipped';
+  category?: string;
 };
 
 export type FetchEmailsResponse = {

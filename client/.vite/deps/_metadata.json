@@ -1,0 +1,118 @@
+{
+  "hash": "1468296e",
+  "configHash": "a6635268",
+  "lockfileHash": "2a0e57a8",
+  "browserHash": "c55e67ca",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "eb8402fc",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "09acbd18",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "6af34abe",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "f8aaf6e2",
+      "needsInterop": false
+    },
+    "@mui/material": {
+      "src": "../../node_modules/@mui/material/esm/index.js",
+      "file": "@mui_material.js",
+      "fileHash": "77d10aa9",
+      "needsInterop": false
+    },
+    "@mui/material/styles": {
+      "src": "../../node_modules/@mui/material/esm/styles/index.js",
+      "file": "@mui_material_styles.js",
+      "fileHash": "3b1eeea5",
+      "needsInterop": false
+    },
+    "@mui/icons-material": {
+      "src": "../../node_modules/@mui/icons-material/esm/index.js",
+      "file": "@mui_icons-material.js",
+      "fileHash": "28ddc2fc",
+      "needsInterop": false
+    },
+    "@mui/x-date-pickers/DateTimePicker": {
+      "src": "../../node_modules/@mui/x-date-pickers/esm/DateTimePicker/index.js",
+      "file": "@mui_x-date-pickers_DateTimePicker.js",
+      "fileHash": "42b3a633",
+      "needsInterop": false
+    },
+    "@mui/x-date-pickers/LocalizationProvider": {
+      "src": "../../node_modules/@mui/x-date-pickers/esm/LocalizationProvider/index.js",
+      "file": "@mui_x-date-pickers_LocalizationProvider.js",
+      "fileHash": "3bb70409",
+      "needsInterop": false
+    },
+    "@mui/x-date-pickers/AdapterDayjs": {
+      "src": "../../node_modules/@mui/x-date-pickers/esm/AdapterDayjs/index.js",
+      "file": "@mui_x-date-pickers_AdapterDayjs.js",
+      "fileHash": "05ff97cd",
+      "needsInterop": false
+    },
+    "dayjs": {
+      "src": "../../node_modules/dayjs/dayjs.min.js",
+      "file": "dayjs.js",
+      "fileHash": "0916c73d",
+      "needsInterop": true
+    },
+    "dayjs/plugin/utc": {
+      "src": "../../node_modules/dayjs/plugin/utc.js",
+      "file": "dayjs_plugin_utc.js",
+      "fileHash": "19b4b941",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-V3Q5LRIZ": {
+      "file": "chunk-V3Q5LRIZ.js"
+    },
+    "chunk-TM5ZMEGC": {
+      "file": "chunk-TM5ZMEGC.js"
+    },
+    "chunk-AVBJDU3V": {
+      "file": "chunk-AVBJDU3V.js"
+    },
+    "chunk-7WDUDGBX": {
+      "file": "chunk-7WDUDGBX.js"
+    },
+    "chunk-AVUONKA5": {
+      "file": "chunk-AVUONKA5.js"
+    },
+    "chunk-KP7BIHBJ": {
+      "file": "chunk-KP7BIHBJ.js"
+    },
+    "chunk-MP6CK4JI": {
+      "file": "chunk-MP6CK4JI.js"
+    },
+    "chunk-Z5AGUBZC": {
+      "file": "chunk-Z5AGUBZC.js"
+    },
+    "chunk-UFE4ZPZS": {
+      "file": "chunk-UFE4ZPZS.js"
+    },
+    "chunk-HQ6ZTAWL": {
+      "file": "chunk-HQ6ZTAWL.js"
+    },
+    "chunk-ULSRCYB6": {
+      "file": "chunk-ULSRCYB6.js"
+    },
+    "chunk-G3PMV62Z": {
+      "file": "chunk-G3PMV62Z.js"
+    }
+  }
+}
